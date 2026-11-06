@@ -1,0 +1,36 @@
+# CodeRabbit settings for FoundryVTT-debug-recorder.
+# Shared rules come from the central dxcufgb/coderabbit repository (inheritance: true), and CodeRabbit reads
+# the README as code guidelines. Only what is specific to this repository is here.
+# Paths here must not repeat a central path (scripts/**/*.js, .github/workflows/**, **/*.sh, **/*.ps1, **/*.iss,
+# module.json, **/*.md): an entry with the same path replaces the central one instead of adding to it.
+# Check the merged result on a pull request with: @coderabbitai configuration
+inheritance: true
+
+reviews:
+  path_instructions:
+    - path: "scripts/privacy.js"
+      instructions: |
+        The privacy layer. Pure logic without Foundry globals, unit tested in tests/. Keep it importable in Node.
+        Nothing private may get through: names of users, actors, tokens, items, combatants, scenes; chat, journal
+        and description text; the world title, id and description; the instance's origin, host name, IP or port;
+        passwords, keys, cookies. Flag any change that weakens a mask, adds a pseudonym mapping to output, or stores
+        a value before it went through a Redactor.
+    - path: "scripts/{recorder,capture,environment,export}.js"
+      instructions: |
+        Everything is redacted when it is stored (session.redactor.redact / scrubString), never only at export.
+        Capture wrappers (console, notifications, window and hook errors) must never throw into, delay or change
+        what they wrap, and must be removed at Stop. The public API (register, breadcrumb, isRecording and the
+        "dxcufgbs-debug-recorder.ready" hook) is locked: other modules code against these exact names.
+        environment.js reads no names, chat, journal text or flag values (only counts, key shapes and sizes).
+    - path: "tests/**"
+      instructions: |
+        tests/pipeline.test.mjs is the privacy gate: it seeds recognisable private values and fails if any reaches
+        the exported file. Never weaken a seed or an assertion to make it pass.
+    - path: "templates/**"
+      instructions: |
+        Triple-stash ({{{ }}}) is not allowed; every value is escaped.
+    - path: ".github/workflows/{ci,release}.yml"
+      instructions: |
+        Thin callers of dxcufgb/foundry-module-ci, identical in every Foundry module repository. Flag any change
+        here that is not the same change in all modules (it belongs in foundry-module-ci instead), except the
+        pinned SHA of foundry-module-ci itself.

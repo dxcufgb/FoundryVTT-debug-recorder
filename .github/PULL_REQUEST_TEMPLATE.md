@@ -6,4 +6,4 @@
 
 - [ ] Tested in Foundry VTT (version: )
 - [ ] New or changed settings have a Name and Hint in `lang/en.json`
-- [ ] README updated if behaviour or settings changed
+- [ ] Wiki updated if behaviour or settings changed
