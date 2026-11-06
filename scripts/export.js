@@ -253,7 +253,7 @@ export async function issueSummary(selected = []) {
     `**Recorder:** ${MODULE_ID} ${recorderVersion()}`,
     "**Modules:**"
   ];
-  if (!selected.length) lines.push("- none selected");
+  if (!selected.length) lines.push("- (no module ticked)");
   for (const id of selected) {
     const mod = game.modules.get(id);
     const v = versions.modules[id] ?? {};

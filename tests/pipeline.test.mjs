@@ -255,7 +255,10 @@ test("full pipeline: record, export, and no seeded value anywhere in the file", 
   console.log(`unattributed ${SEED.actor}`);
   for (const fn of windowListeners.error ?? []) fn({ error: moduleError(`uncaught ${leaky}`), message: "x", filename: `${ORIGIN}/modules/${FAKE}/scripts/main.js`, lineno: 3, colno: 9 });
   for (const fn of windowListeners.unhandledrejection ?? []) fn({ reason: moduleError(`rejected ${leaky}`) });
-  const hookErr = moduleError(`hook failed for ${SEED.journal}`);
+  // Like Foundry's Hooks.onError: a wrapper error (logged where it was caught) with the thrown error as its cause.
+  const hookCause = moduleError(`hook failed for ${SEED.journal}`);
+  const hookErr = new Error(`Error thrown in hooked function 'onUpdateActor' for hook 'updateActor'. ${hookCause.message}`, { cause: hookCause });
+  hookErr.stack = `Error: ${hookErr.message}\n    at Hooks.onError (${ORIGIN}/modules/lib-wrapper/lib-wrapper.js:1:34500)\n    at ${ORIGIN}/scripts/foundry.mjs:2000:1`;
   console.error(hookErr);
   Hooks.callAll("error", "Hooks.#call", hookErr, { hook: "updateActor", fn: function onUpdateActor() {} });
   Hooks.callAll("error", "Hooks.#call", moduleError(`second hook failed ${SEED.combatant}`), { hook: "renderChatMessage" });
@@ -333,6 +336,8 @@ test("the file is complete and self-describing", () => {
   assert.ok(file.events.every(e => e.module !== "lively-tokens-x"));
   const hookEvent = file.events.find(e => e.type === "hookError" && e.hook === "updateActor");
   assert.ok(hookEvent, "the console.error of a hook error is merged with the hook name");
+  assert.equal(hookEvent.module, FAKE, "a wrapped error is blamed on where its cause was thrown");
+  assert.equal(hookEvent.frames[0].path, "scripts/sheet.js");
   assert.ok(file.events.some(e => e.type === "hookError" && e.hook === "renderChatMessage"));
   assert.equal(file.events.find(e => String(e.message).endsWith("same error again")).count, 3);
   assert.ok(file.events.filter(e => e.type === "console").every(e => e.module === FAKE));

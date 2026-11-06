@@ -24,6 +24,16 @@ function asError(value) {
   return value && typeof value === "object" && typeof value.message === "string" && typeof value.stack === "string" ? value : null;
 }
 
+/**
+ * The stack to keep for an error: Foundry's Hooks.onError (and others) wrap the original error in a new one with
+ * `cause`; the wrapper's stack only shows where it was logged, the deepest cause shows where it was thrown.
+ */
+export function originStack(err) {
+  let e = err;
+  for (let i = 0; i < 5 && asError(e?.cause); i++) e = e.cause;
+  return e?.stack ?? err?.stack;
+}
+
 /** The call stack without the recorder's own frames (and the "Error" line). */
 function callStack() {
   const stack = new Error().stack ?? "";
@@ -95,14 +105,14 @@ export function installCapture(sink, target = {}) {
         const stack = callStack();
         const { message, data } = formatConsoleArgs(args);
         const caller = moduleFromStack(stack);
-        const module = (level === "error" ? moduleFromStack(err?.stack) ?? caller : caller ?? moduleFromStack(err?.stack)) ?? null;
+        const module = (level === "error" ? moduleFromStack(originStack(err)) ?? caller : caller ?? moduleFromStack(originStack(err))) ?? null;
         const selected = module && sink.isSelected(module);
         if (level === "warn" && DEPRECATION_RE.test(message)) {
           if (selected) sink.record("deprecation", { message, stack }, { module, level: "warn" });
           return;
         }
         if (!selected && level !== "error") return;
-        const ev = sink.record("console", { consoleLevel: level, message, errorClass: err ? errorName(err) : undefined, stack: err?.stack ?? stack, data }, { module, level: level === "error" ? "error" : level === "warn" ? "warn" : "info" });
+        const ev = sink.record("console", { consoleLevel: level, message, errorClass: err ? errorName(err) : undefined, stack: (err ? originStack(err) : null) ?? stack, data }, { module, level: level === "error" ? "error" : level === "warn" ? "warn" : "info" });
         remember(err, ev);
       });
       return original.apply(this, args);
@@ -116,16 +126,16 @@ export function installCapture(sink, target = {}) {
     const err = asError(event?.error);
     if (err && s.seen.has(err)) return;
     const location = event?.filename ? `${event.filename}:${event.lineno ?? 0}:${event.colno ?? 0}` : "";
-    const ev = sink.record("error", { message: err?.message ?? String(event?.message ?? ""), errorClass: err ? errorName(err) : undefined, stack: err?.stack ?? location },
-      { module: moduleFromStack(err?.stack ?? location), level: "error" });
+    const ev = sink.record("error", { message: err?.message ?? String(event?.message ?? ""), errorClass: err ? errorName(err) : undefined, stack: (err ? originStack(err) : null) ?? location },
+      { module: moduleFromStack(err ? originStack(err) : location), level: "error" });
     remember(err, ev);
   });
   const onRejection = event => guarded(() => {
     const reason = event?.reason;
     const err = asError(reason);
     if (err && s.seen.has(err)) return;
-    const ev = sink.record("rejection", { message: err?.message ?? String(reason ?? ""), errorClass: err ? errorName(err) : undefined, stack: err?.stack },
-      { module: moduleFromStack(err?.stack), level: "error" });
+    const ev = sink.record("rejection", { message: err?.message ?? String(reason ?? ""), errorClass: err ? errorName(err) : undefined, stack: err ? originStack(err) : undefined },
+      { module: moduleFromStack(originStack(err)), level: "error" });
     remember(err, ev);
   });
   if (typeof win?.addEventListener === "function") {
@@ -147,8 +157,8 @@ export function installCapture(sink, target = {}) {
         Object.assign(known, sink.redactFields?.(fields) ?? {});
         return;
       }
-      const ev = sink.record("hookError", { ...fields, message: err?.message ?? String(error ?? ""), errorClass: err ? errorName(err) : undefined, stack: err?.stack },
-        { module: moduleFromStack(err?.stack), level: "error" });
+      const ev = sink.record("hookError", { ...fields, message: err?.message ?? String(error ?? ""), errorClass: err ? errorName(err) : undefined, stack: err ? originStack(err) : undefined },
+        { module: moduleFromStack(originStack(err)), level: "error" });
       remember(err, ev);
     }));
   }
