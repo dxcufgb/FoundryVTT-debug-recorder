@@ -1,0 +1,76 @@
+{
+  "DXDR": {
+    "Settings": {
+      "Recorder": {
+        "Name": "Debug recorder",
+        "Label": "Open the recorder",
+        "Hint": "Record debug data about Dxcufgb's modules into one file to attach to a bug report. Names, chat and journal text, the world's title and the server's address are never recorded."
+      },
+      "AutoStop": {
+        "Name": "Stop recording after (minutes)",
+        "Hint": "A recording stops by itself after this many minutes, so it can't run on by accident."
+      }
+    },
+    "Keybindings": {
+      "Open": {
+        "Name": "Open the debug recorder",
+        "Hint": "Opens the Debug Recorder window (GM only). No key is set by default."
+      }
+    },
+    "App": {
+      "Title": "Debug Recorder",
+      "PrivacyNote": "Only technical data is recorded: versions, settings without their text, errors and what the modules report. Names, chat, journal text, the world's title and the server's address are removed before anything is stored. Look at the preview before you share the file.",
+      "Modules": "Modules to record",
+      "ModulesHint": "Dxcufgb's modules that are active in this world. Errors from other modules are recorded too, without their logs.",
+      "NoModules": "None of Dxcufgb's modules is active in this world.",
+      "SelectAll": "All",
+      "SelectNone": "None",
+      "Registered": "reports state",
+      "RegisteredHint": "This module sends the recorder a snapshot of its own state.",
+      "Start": "Start recording",
+      "Stop": "Stop recording",
+      "Elapsed": "Time",
+      "Events": "Events",
+      "Errors": "Errors",
+      "Warnings": "Warnings",
+      "Dropped": "Dropped",
+      "AutoStop": "A recording stops by itself after {minutes} minutes. Only this GM client is recorded in this version.",
+      "Report": "What happened",
+      "ReportHint": "Optional. Saved in the file. Names you type here are removed as well.",
+      "Steps": "Steps to reproduce",
+      "Expected": "Expected behaviour",
+      "Actual": "Actual behaviour",
+      "Preview": "Preview",
+      "PreviewRefresh": "Show the file",
+      "PreviewEmpty": "Click \"Show the file\" to see exactly what the exported file will contain.",
+      "PreviewSize": "The whole file, {size}. Exporting builds it again, with what happened since.",
+      "PreviewTruncated": "The first {shown} characters of {size}. The export has everything.",
+      "Export": "Export file",
+      "CopySummary": "Copy issue summary",
+      "Clear": "Clear"
+    },
+    "Indicator": {
+      "Label": "Debug recording",
+      "Tooltip": "The GM is recording debug data for a bug report. Names, chat and journal text are not recorded."
+    },
+    "Confirm": {
+      "ReplaceTitle": "Start a new recording?",
+      "ReplaceBody": "The last recording hasn't been cleared. Starting a new one replaces it. Export it first if you still need it.",
+      "ClearTitle": "Clear the recording?",
+      "ClearBody": "Everything recorded so far is deleted. Export it first if you still need it."
+    },
+    "Notify": {
+      "Started": "Debug Recorder: recording. It stops by itself after {minutes} minutes.",
+      "Stopped": "Debug Recorder: recording stopped. Export the file to attach it to the bug report.",
+      "AutoStopped": "Debug Recorder: recording stopped by itself after {minutes} minutes.",
+      "LostOnReload": "Debug Recorder: the page was reloaded during a recording, so that recording is lost.",
+      "Exported": "Debug Recorder: saved {file} ({size}).",
+      "TooBig": "Debug Recorder: the file would be {size}, more than {max}. Record a shorter session or fewer modules.",
+      "Copied": "Debug Recorder: issue summary copied.",
+      "Cleared": "Debug Recorder: recording cleared.",
+      "NothingSelected": "Debug Recorder: tick at least one module to record.",
+      "GMOnly": "Debug Recorder: only a GM can record.",
+      "Failed": "Debug Recorder: something went wrong. See the console (F12) for details."
+    }
+  }
+}

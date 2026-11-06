@@ -103,6 +103,14 @@ export function moduleFromStack(stack) {
   return null;
 }
 
+/** An Error, or an error-like class instance (never a plain object that happens to have message and stack). */
+export function isErrorLike(v) {
+  if (v instanceof Error) return true;
+  if (!v || typeof v !== "object") return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto !== Object.prototype && proto !== null && typeof v.stack === "string" && typeof v.message === "string";
+}
+
 /** An error's class name when it looks like a class name, else "Error" (never anything a user typed). */
 export function errorName(err) {
   const name = err?.name;
@@ -557,7 +565,7 @@ export class Redactor {
     }
     if (typeof v.nodeType === "number" && typeof v.nodeName === "string") return `[element ${String(v.nodeName).toLowerCase()}]`;
     if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v.toISOString();
-    if (v instanceof Error || (typeof v.stack === "string" && typeof v.message === "string")) return this.errorInfo(v);
+    if (isErrorLike(v)) return this.errorInfo(v);
     if (typeof v.documentName === "string" && (v.id || v._id)) {
       return { document: String(v.documentName).slice(0, 40), docId: this.pseudonym(v.id ?? v._id, v.documentName) };
     }
