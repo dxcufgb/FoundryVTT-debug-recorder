@@ -1,4 +1,4 @@
-import { valuesOf, jsonSize, roleKey, clientLabel } from "./util.js";
+import { valuesOf, jsonSize, clientLabel } from "./util.js";
 import { WORLD_COLLECTIONS } from "./privacy.js";
 
 /*
@@ -152,7 +152,8 @@ export function environmentHeader(selected = []) {
     display: displayInfo(),
     webgl: webglInfo(),
     language: safe(() => game.i18n.lang),
-    client: { label: clientLabel(game.user), role: roleKey(game.user?.role) },
+    // Role as CONST.USER_ROLES number (a role word could equal a user's name), label like "GM 1".
+    client: { label: clientLabel(game.user), role: game.user?.role ?? null },
     users: {
       total: users.length,
       connected: users.filter(u => u.active).length,
@@ -273,8 +274,6 @@ function* worldDocuments() {
 function flagsOf(id) {
   const byType = {};
   const journals = [];
-  const levels = Object.entries(globalThis.CONST?.DOCUMENT_OWNERSHIP_LEVELS ?? {});
-  const levelName = n => levels.find(([, v]) => v === n)?.[0] ?? String(n);
   for (const [type, doc] of worldDocuments()) {
     const flags = safe(() => doc.flags?.[id]);
     if (flags === null || flags === undefined) continue;
@@ -287,12 +286,13 @@ function flagsOf(id) {
       const perUser = {};
       for (const [userId, level] of Object.entries(ownership)) {
         if (userId === "default") continue;
-        const name = levelName(level);
+        const name = `level${Number(level)}`;
         perUser[name] = (perUser[name] ?? 0) + 1;
       }
+      // Ownership as CONST.DOCUMENT_OWNERSHIP_LEVELS numbers ("level2" = OBSERVER): level words could equal user names.
       journals.push({
         docId: doc.id,
-        defaultOwnership: levelName(ownership.default ?? 0),
+        defaultOwnership: Number(ownership.default ?? 0),
         userOwnership: perUser,
         pages: valuesOf(doc.pages).length,
         flagBytes: jsonSize(flags),

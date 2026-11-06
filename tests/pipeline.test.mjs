@@ -301,7 +301,9 @@ test("the file is complete and self-describing", () => {
   assert.equal(fake.stateStart.flags.Item.documents, 1);
   assert.equal(fake.stateStart.flags.Token.documents, 1);
   assert.equal(fake.stateStart.journalStores.length, 1);
-  assert.equal(fake.stateStart.journalStores[0].defaultOwnership, "OWNER");
+  assert.equal(fake.stateStart.journalStores[0].defaultOwnership, 3);
+  assert.deepEqual(fake.stateStart.journalStores[0].userOwnership, { level2: 1 });
+  assert.equal(file.environment.client.role, 4);
   assert.match(fake.stateStart.journalStores[0].docId, /^J\d+$/);
   assert.equal(fake.stateStart.socket.listening, true);
 

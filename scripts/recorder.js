@@ -1,4 +1,4 @@
-import { MODULE_ID, MAX_EVENTS, MAX_SNAPSHOT_BYTES, MAX_BREADCRUMB_BYTES, SNAPSHOT_TIMEOUT_MS, jsonSize, clientLabel, roleKey, t } from "./util.js";
+import { MODULE_ID, MAX_EVENTS, MAX_SNAPSHOT_BYTES, MAX_BREADCRUMB_BYTES, SNAPSHOT_TIMEOUT_MS, jsonSize, clientLabel, t } from "./util.js";
 import { Redactor } from "./privacy.js";
 import { environmentHeader, moduleState } from "./environment.js";
 import { installCapture, uninstallCapture } from "./capture.js";
@@ -198,7 +198,7 @@ function newSession(selected) {
     stoppedAt: null,
     autoStopped: false,
     autoStopMinutes: null,
-    client: { label: clientLabel(user), role: roleKey(user?.role) },
+    client: { label: clientLabel(user), role: user?.role ?? null },
     environment: null,
     modules: {},
     events: [],
