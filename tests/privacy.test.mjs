@@ -37,6 +37,15 @@ test("module ids and our own words are never scrubbed", () => {
   assert.equal(r.scrubString("the Quest Log opened"), `the ${MASK.name} opened`);
 });
 
+test("names that start with our own words are scrubbed; our own values and keys are kept", () => {
+  const r = redactor();
+  for (const n of ["Gamemaster", "Assistant GM", "Trusted Player", "Player", "None", "Message", "World"]) r.addName(n, "User");
+  assert.equal(r.scrubString("uncaught Gamemaster,Assistant GM,None,Player,Trusted Player"), `uncaught ${Array(5).fill(MASK.name).join(",")}`);
+  const out = r.redact({ role: "GAMEMASTER", label: "Player 2", scope: "world", level: "error", message: "Player joined", Player: 1 });
+  assert.deepEqual(out, { role: "GAMEMASTER", label: "Player 2", scope: "world", level: "error", message: `${MASK.name} joined`, [MASK.name]: 1 });
+  assert.equal(r.redact({ compatibility: { minimum: "1.2.3.4" } }).compatibility.minimum, "1.2.3.4");
+});
+
 test("world title, id and texts", () => {
   const r = redactor();
   assert.equal(r.scrubString("World Secret Campaign of Doom loaded"), `World ${MASK.world} loaded`);

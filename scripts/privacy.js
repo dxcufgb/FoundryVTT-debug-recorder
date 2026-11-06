@@ -85,8 +85,22 @@ const STOP_WORDS = new Set(["main", "test", "error", "token", "tokens", "actor",
   "function", "object", "class", "module", "modules", "scripts", "script", "render", "update", "create", "delete",
   "item", "items", "journal", "combat", "chat", "message", "world", "system", "this", "that", "none", "warn",
   "info", "debug", "foundry", "canvas", "hook", "hooks", "setting", "settings", "default", "new", "old", "copy"]);
-/** Our own vocabulary that must survive the final pass even when a user is called e.g. "Gamemaster". */
-const OWN_WORDS = ["GAMEMASTER", "ASSISTANT", "TRUSTED", "PLAYER", "NONE", "UNKNOWN"];
+/**
+ * The recorder's own enum values. A string that is exactly one of these (or a client label such as "Player 2") is not
+ * name-scrubbed, so a world with a user called "Player" or an item called "Error" still gets readable roles, levels and
+ * types. Inside any longer string those words are scrubbed like every other name.
+ */
+const OWN_VALUES = new Set(["GAMEMASTER", "ASSISTANT", "TRUSTED", "PLAYER", "NONE", "UNKNOWN", "INHERIT", "LIMITED",
+  "OBSERVER", "OWNER", "world", "client", "user", "error", "warn", "warning", "info", "log", "breadcrumb", "console",
+  "deprecation", "rejection", "hookError", "notification", "snapshotError", "start", "stop", "export", "module", "system",
+  "String", "Number", "Boolean", "Object", "Array", "function", "getter", "class", "object", "string", "number",
+  "boolean", "undefined", "symbol", "bigint", "unknown", "Chrome", "Firefox", "Edge", "Safari", "Opera", "Vivaldi",
+  "Brave", "Unknown", "Windows", "macOS", "Linux", "Android", "iOS", "ChromeOS", "stable", "testing", "development"]);
+const CLIENT_LABEL_RE = /^(?:GM|Assistant GM|Trusted player|Player|User) \d+$/;
+/** Keys that look like the recorder's own (lower camelCase identifiers) are never name-scrubbed. */
+const OWN_KEY_RE = /^[a-z_$][A-Za-z0-9_$]{0,60}$/;
+/** Keys whose values are version strings (never masked as IPs). */
+const VERSION_KEY_RE = /version$|^(?:minimum|verified|maximum)$/i;
 /** Document types whose names are people: each word of 4+ letters is scrubbed on its own too. */
 const PERSON_TYPES = new Set(["User", "Actor", "Token", "Combatant"]);
 
@@ -221,7 +235,7 @@ export class LiteralScrubber {
       this.#dirty = false;
     }
     const spans = this.#protectedSpans(str);
-    const inSpan = i => spans.some(([a, b]) => i >= a && i < b);
+    const inSpan = (a, b) => spans.some(([x, y]) => a >= x && b <= y);
     let out = "";
     let last = 0;
     WORD_TOKEN_RE.lastIndex = 0;
@@ -229,10 +243,10 @@ export class LiteralScrubber {
     while ((m = WORD_TOKEN_RE.exec(str))) {
       const start = m.index;
       const list = this.#index.get(m[0].toLowerCase());
-      if (!list || inSpan(start)) continue;
+      if (!list) continue;
       for (const entry of list) {
         const end = start + entry.len;
-        if (end > str.length) continue;
+        if (end > str.length || inSpan(start, end)) continue;
         if (end < str.length && isWordChar(str[end])) continue;
         if (str.slice(start, end).toLowerCase() !== entry.lower) continue;
         out += str.slice(last, start) + replace(entry.category);
@@ -289,7 +303,7 @@ export class Redactor {
 
   constructor({ hosts = [], protectedWords = [] } = {}) {
     for (const h of hosts) this.addHost(h);
-    this.#literals.protect([...OWN_WORDS, ...protectedWords]);
+    this.#literals.protect(protectedWords);
   }
 
   /** A Redactor that knows the world's names, texts, ids and the instance's host. */
@@ -401,7 +415,7 @@ export class Redactor {
   }
 
   /** Scrubs one string (see the file header for the steps). */
-  scrubString(value, { maxLength = 2000, version = false } = {}) {
+  scrubString(value, { maxLength = 2000, version = false, key = false } = {}) {
     let s = String(value ?? "");
     if (!s) return s;
     if (s.length > 200000) {
@@ -454,7 +468,8 @@ export class Redactor {
         return MASK.ip;
       });
     }
-    s = this.#literals.scrub(s, category => {
+    const ownValue = OWN_VALUES.has(s) || CLIENT_LABEL_RE.test(s) || (key && OWN_KEY_RE.test(s));
+    if (!ownValue) s = this.#literals.scrub(s, category => {
       this.count(category === "name" ? "names" : category === "text" ? "texts" : "worldStrings");
       return MASK[category];
     });
@@ -517,7 +532,7 @@ export class Redactor {
   redactKey(key) {
     const k = String(key);
     if (/^[A-Za-z0-9]{16}$/.test(k) && (this.#known.has(k) || /\d/.test(k))) return this.pseudonym(k);
-    return this.scrubString(k, { maxLength: 200 });
+    return this.scrubString(k, { maxLength: 200, key: true });
   }
 
   /** Deep-redacts any value (see the file header). Never throws. */
@@ -535,7 +550,7 @@ export class Redactor {
     if (k === "docid" || k === "docids") return this.pseudonym(str);
     if (k === "stack") return this.cleanStack(str);
     if (k === "summary") return this.scrubString(str, { maxLength: 2000000 });
-    return this.scrubString(str, { version: /version$/i.test(key), maxLength: k === "steps" || k === "expected" || k === "actual" ? 10000 : 2000 });
+    return this.scrubString(str, { version: VERSION_KEY_RE.test(key), maxLength: k === "steps" || k === "expected" || k === "actual" ? 10000 : 2000 });
   }
 
   #walk(v, key, depth, seen, maxDepth) {
