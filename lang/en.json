@@ -47,6 +47,7 @@
       "PreviewTruncated": "The first {shown} characters of {size}. The export has everything.",
       "Export": "Export file",
       "CopySummary": "Copy issue summary",
+      "CopyByHand": "The browser didn't allow copying. Select the text below and copy it (Ctrl+C).",
       "Clear": "Clear"
     },
     "Indicator": {

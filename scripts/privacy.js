@@ -104,17 +104,28 @@ const VERSION_KEY_RE = /version$|^(?:minimum|verified|maximum)$/i;
 /** Document types whose names are people: each word of 4+ letters is scrubbed on its own too. */
 const PERSON_TYPES = new Set(["User", "Actor", "Token", "Combatant"]);
 
+const MASK_TOKEN_RE = /\[(?:world|host|url|path|ip|email|data-uri)\]|‹(?:name|text)›|‹string:\d+›/g;
+
 const isWordChar = ch => /[\p{L}\p{N}_]/u.test(ch);
 const WORD_TOKEN_RE = /[\p{L}\p{N}_]+/gu;
 
-/** The first module id in a (raw) stack or URL, skipping this recorder's own frames. */
+/** Libraries that wrap other modules' calls: blamed only when no other module is in the stack. */
+const WRAPPER_MODULES = new Set(["lib-wrapper", "libwrapper", "socketlib", "_dev-mode", "find-the-culprit"]);
+
+/**
+ * The first module id in a (raw) stack or URL, skipping this recorder's own frames and, when another module is in the
+ * stack, wrapper libraries such as libWrapper (their frames sit between Foundry and the module that really failed).
+ */
 export function moduleFromStack(stack) {
   if (typeof stack !== "string") return null;
+  let wrapper = null;
   for (const m of stack.matchAll(/modules\/([a-z0-9_-]+)\//gi)) {
     const id = m[1].toLowerCase();
-    if (id !== MODULE_ID) return id;
+    if (id === MODULE_ID) continue;
+    if (!WRAPPER_MODULES.has(id)) return id;
+    wrapper ??= id;
   }
-  return null;
+  return wrapper;
 }
 
 /** An Error, or an error-like class instance (never a plain object that happens to have message and stack). */
@@ -219,8 +230,9 @@ export class LiteralScrubber {
   }
 
   #protectedSpans(str) {
-    if (!this.#protected.size) return [];
-    const spans = [];
+    // The recorder's own masks are never scrubbed (a scene called "World" must not turn [world] into [‹name›]).
+    const spans = [...str.matchAll(MASK_TOKEN_RE)].map(m => [m.index, m.index + m[0].length]);
+    if (!this.#protected.size) return spans;
     for (const m of str.matchAll(/[A-Za-z0-9_-]+/g)) {
       if (this.#protected.has(m[0].toLowerCase())) spans.push([m.index, m.index + m[0].length]);
     }

@@ -1,4 +1,4 @@
-import { MODULE_ID, TEMPLATE_PATH, t, selectableModules, formatDuration, formatBytes } from "../util.js";
+import { MODULE_ID, TEMPLATE_PATH, t, escapeHTML, selectableModules, formatDuration, formatBytes } from "../util.js";
 import * as recorder from "../recorder.js";
 import { buildFile, exportFile, issueSummary } from "../export.js";
 
@@ -232,9 +232,19 @@ export class RecorderApp extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.#guard(async () => {
       const ids = recorder.getState().hasData ? recorder.getState().selected : this.#checkedModules();
       const text = issueSummary(ids);
-      if (game.clipboard?.copyPlainText) await game.clipboard.copyPlainText(text);
-      else await navigator.clipboard.writeText(text);
-      ui.notifications.info(t("Notify.Copied"));
+      try {
+        if (game.clipboard?.copyPlainText) await game.clipboard.copyPlainText(text);
+        else await navigator.clipboard.writeText(text);
+        ui.notifications.info(t("Notify.Copied"));
+      } catch (err) {
+        // The browser refused the clipboard (e.g. the page wasn't focused): show the text to copy by hand.
+        console.warn(`${MODULE_ID} | clipboard`, err);
+        await DialogV2.prompt({
+          window: { title: t("App.CopySummary") },
+          content: `<p>${escapeHTML(t("App.CopyByHand"))}</p><textarea readonly rows="9" style="width: 100%; font-family: var(--font-mono, monospace);">${escapeHTML(text)}</textarea>`,
+          rejectClose: false
+        });
+      }
     });
   }
 

@@ -89,8 +89,10 @@ export async function buildFile(report = {}, selected = []) {
     events: s.events,
     summary: ""
   };
-  file.summary = summaryMarkdown(file);
   const clean = r.redact(file, { maxDepth: 24 });
+  // Built from the redacted file, so it holds nothing the file doesn't; not scrubbed again, so its own words
+  // ("window", "Screen") stay readable even when a world document has that name.
+  clean.summary = summaryMarkdown(clean);
   clean.redaction = { ...r.report, knownLiterals: r.literalCount };
   return clean;
 }

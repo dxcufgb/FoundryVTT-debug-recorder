@@ -141,6 +141,17 @@ test("errors and stacks", () => {
   assert.equal(errorName({ name: "MyModuleError" }), "MyModuleError");
 });
 
+test("masks are never scrubbed; wrapper libraries are blamed last", () => {
+  const r = redactor();
+  r.addName("World", "Scene");
+  r.addName("Path", "Item");
+  assert.equal(r.scrubString("at /worlds/x/a.png and C:\\secret"), "at [world]/ and [path]");
+  assert.equal(r.scrubString("[world] [path] ‹name› World"), `[world] [path] ‹name› ${MASK.name}`);
+  const wrapped = "Error\n at a (http://h/modules/lib-wrapper/x.js:1:1)\n at b (http://h/modules/dxcufgbs-quest-log/y.js:2:2)";
+  assert.equal(moduleFromStack(wrapped), "dxcufgbs-quest-log");
+  assert.equal(moduleFromStack("Error\n at a (http://h/modules/lib-wrapper/x.js:1:1)"), "lib-wrapper");
+});
+
 test("module attribution from stacks skips the recorder", () => {
   const stack = "Error\n at a (http://h/modules/dxcufgbs-debug-recorder/scripts/capture.js:1:1)\n at b (http://h/modules/dxcufgbs-quest-log/scripts/x.js:2:2)";
   assert.equal(moduleFromStack(stack), "dxcufgbs-quest-log");
