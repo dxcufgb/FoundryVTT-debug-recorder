@@ -1,0 +1,35 @@
+{
+  "id": "dxcufgbs-debug-recorder",
+  "title": "Dxcufgb's Debug Recorder",
+  "description": "A GM helper for bug reports about Dxcufgb's modules. While recording it collects versions, settings, errors, warnings and what the modules report about themselves into one JSON file to attach to a GitHub issue, together with steps to reproduce and what you expected. Names, chat and journal text, the world's title and the server's address are removed before anything is stored, and a preview shows exactly what the file contains.",
+  "version": "0.1.0",
+  "authors": [
+    {
+      "name": "Dxcufgb",
+      "url": "https://github.com/Dxcufgb"
+    }
+  ],
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13"
+  },
+  "url": "https://github.com/dxcufgb/FoundryVTT-debug-recorder",
+  "manifest": "https://github.com/dxcufgb/FoundryVTT-debug-recorder/releases/latest/download/module.json",
+  "download": "https://github.com/dxcufgb/FoundryVTT-debug-recorder/releases/latest/download/module.zip",
+  "bugs": "https://github.com/dxcufgb/FoundryVTT-debug-recorder/issues",
+  "readme": "https://github.com/dxcufgb/FoundryVTT-debug-recorder#readme",
+  "license": "LICENSE",
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "styles": [
+    "styles/debug-recorder.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ]
+}

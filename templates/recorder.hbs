@@ -1,0 +1,86 @@
+<div class="dxdr-main">
+<div class="dxdr-body">
+  <p class="dxdr-privacy"><i class="fa-solid fa-user-shield" inert></i> {{localize "DXDR.App.PrivacyNote"}}</p>
+
+  <section class="dxdr-section">
+    <header class="dxdr-section-head">
+      <h3><i class="fa-solid fa-puzzle-piece" inert></i> {{localize "DXDR.App.Modules"}}</h3>
+      {{#unless recording}}
+      <div class="dxdr-links">
+        <button type="button" class="dxdr-link" data-action="selectAll">{{localize "DXDR.App.SelectAll"}}</button>
+        <button type="button" class="dxdr-link" data-action="selectNone">{{localize "DXDR.App.SelectNone"}}</button>
+      </div>
+      {{/unless}}
+    </header>
+    <p class="hint">{{localize "DXDR.App.ModulesHint"}}</p>
+    {{#if noModules}}
+    <p class="dxdr-empty">{{localize "DXDR.App.NoModules"}}</p>
+    {{else}}
+    <ul class="dxdr-modules">
+      {{#each modules}}
+      <li>
+        <label class="checkbox">
+          <input type="checkbox" data-module="{{id}}" {{checked selected}} {{disabled @root.recording}}>
+          <span class="dxdr-module-title">{{title}}</span>
+          <span class="dxdr-module-meta">{{id}} {{version}}</span>
+          {{#if registered}}<span class="dxdr-tag" data-tooltip="{{localize "DXDR.App.RegisteredHint"}}">{{localize "DXDR.App.Registered"}}</span>{{/if}}
+        </label>
+      </li>
+      {{/each}}
+    </ul>
+    {{/if}}
+  </section>
+
+  <section class="dxdr-section dxdr-control {{#if recording}}dxdr-on{{/if}}">
+    <button type="button" class="dxdr-record" data-action="toggle">
+      {{#if recording}}
+      <i class="fa-solid fa-stop" inert></i> {{localize "DXDR.App.Stop"}}
+      {{else}}
+      <i class="fa-solid fa-circle" inert></i> {{localize "DXDR.App.Start"}}
+      {{/if}}
+    </button>
+    <dl class="dxdr-stats">
+      <div><dt>{{localize "DXDR.App.Elapsed"}}</dt><dd data-live="elapsed">{{elapsed}}</dd></div>
+      <div><dt>{{localize "DXDR.App.Events"}}</dt><dd data-live="total">{{total}}</dd></div>
+      <div><dt>{{localize "DXDR.App.Errors"}}</dt><dd data-live="errors" class="dxdr-errors">{{errors}}</dd></div>
+      <div><dt>{{localize "DXDR.App.Warnings"}}</dt><dd data-live="warnings">{{warnings}}</dd></div>
+      <div><dt>{{localize "DXDR.App.Dropped"}}</dt><dd data-live="dropped">{{dropped}}</dd></div>
+    </dl>
+    <p class="hint">{{localize "DXDR.App.AutoStop" minutes=autoStop}}</p>
+  </section>
+
+  <section class="dxdr-section">
+    <h3><i class="fa-solid fa-list-ol" inert></i> {{localize "DXDR.App.Report"}}</h3>
+    <p class="hint">{{localize "DXDR.App.ReportHint"}}</p>
+    <label class="dxdr-field">{{localize "DXDR.App.Steps"}}
+      <textarea data-report="steps" rows="3">{{report.steps}}</textarea></label>
+    <label class="dxdr-field">{{localize "DXDR.App.Expected"}}
+      <textarea data-report="expected" rows="2">{{report.expected}}</textarea></label>
+    <label class="dxdr-field">{{localize "DXDR.App.Actual"}}
+      <textarea data-report="actual" rows="2">{{report.actual}}</textarea></label>
+  </section>
+
+  <section class="dxdr-section">
+    <header class="dxdr-section-head">
+      <h3><i class="fa-solid fa-file-code" inert></i> {{localize "DXDR.App.Preview"}}</h3>
+      <button type="button" class="dxdr-link" data-action="preview"><i class="fa-solid fa-rotate" inert></i> {{localize "DXDR.App.PreviewRefresh"}}</button>
+    </header>
+    <p class="hint">{{localize "DXDR.App.PreviewNote"}}</p>
+    {{#if preview}}
+    <p class="hint">{{previewInfo}}</p>
+    <pre class="dxdr-preview"><code>{{preview}}</code></pre>
+    {{else}}
+    <p class="dxdr-empty">{{localize "DXDR.App.PreviewEmpty"}}</p>
+    {{/if}}
+  </section>
+</div>
+
+<footer class="dxdr-footer">
+  {{#if canZip}}
+  <label class="checkbox dxdr-zip" data-tooltip="{{zipHint}}"><input type="checkbox" data-zip {{checked zip}}> {{localize "DXDR.App.Zip"}}</label>
+  {{/if}}
+  <button type="button" data-action="exportFile"><i class="fa-solid fa-file-export" inert></i> {{localize "DXDR.App.Export"}}</button>
+  <button type="button" data-action="copySummary"><i class="fa-solid fa-clipboard" inert></i> {{localize "DXDR.App.CopySummary"}}</button>
+  <button type="button" data-action="clear" {{disabled (or recording (not hasData))}}><i class="fa-solid fa-trash" inert></i> {{localize "DXDR.App.Clear"}}</button>
+</footer>
+</div>
