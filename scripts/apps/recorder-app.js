@@ -70,6 +70,7 @@ export class RecorderApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #ticker = null;
   #unsubscribe = null;
   #busy = false;
+  #saving = Promise.resolve();
 
   constructor(options = {}) {
     super(options);
@@ -152,12 +153,15 @@ export class RecorderApp extends HandlebarsApplicationMixin(ApplicationV2) {
     return [...this.element.querySelectorAll("input[data-module]:checked")].map(el => el.dataset.module);
   }
 
-  async #saveSelection(ids = this.#checkedModules()) {
-    try {
-      await game.settings.set(MODULE_ID, "selection", { saved: true, ids });
-    } catch (err) {
+  /**
+   * Saves the ticked modules. Saves run one after another: two quick changes saved at once would each create the
+   * world setting (found in the live test: two "selection" setting documents).
+   */
+  #saveSelection(ids = this.#checkedModules()) {
+    this.#saving = this.#saving.then(() => game.settings.set(MODULE_ID, "selection", { saved: true, ids })).catch(err => {
       console.error(`${MODULE_ID} | save selection`, err);
-    }
+    });
+    return this.#saving;
   }
 
   async #guard(fn) {
