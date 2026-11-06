@@ -38,7 +38,15 @@ test("git commit: loose ref, packed ref, detached HEAD, not a clone; relative pa
     "modules/a/.git/HEAD": "ref: refs/heads/main\n", "modules/a/.git/refs/heads/main": `${SHA}\n`,
     "modules/b/.git/HEAD": "ref: refs/heads/feature/x\n", "modules/b/.git/packed-refs": `# pack-refs\n${SHA} refs/heads/feature/x\n`,
     "modules/c/.git/HEAD": `${SHA}\n`,
-    "modules/d/.git/HEAD": "ref: refs/heads/gone\n"
+    "modules/d/.git/HEAD": "ref: refs/heads/gone\n",
+    "modules/t/.git/HEAD": "ref: refs/tags/v1.2.0\n", "modules/t/.git/refs/tags/v1.2.0": `${SHA}\n`,
+    "modules/x1/.git/HEAD": "ref: refs/../../../../x\n",
+    "modules/x2/.git/HEAD": "ref: refs/heads/../../config\n",
+    "modules/x3/.git/HEAD": "ref: refs/heads//main\n",
+    "modules/x4/.git/HEAD": "ref: refs/remotes/origin/main\n",
+    "modules/x5/.git/HEAD": "ref: refs/heads/.hidden\n",
+    // what an escaping ref would reach after URL normalisation: must never be fetched
+    "x": `${SHA}\n`, "modules/x2/.git/config": `${SHA}\n`
   };
   const f = fakeFetch(files, calls);
   assert.deepEqual(await gitCommit("a", f), { commit: SHA, branch: "main", reason: null });
@@ -46,6 +54,12 @@ test("git commit: loose ref, packed ref, detached HEAD, not a clone; relative pa
   assert.deepEqual(await gitCommit("c", f), { commit: SHA, branch: null, reason: "detached HEAD" });
   assert.equal((await gitCommit("d", f)).commit, null);
   assert.equal((await gitCommit("e", f)).reason, "not a git clone, or .git not served");
+  assert.deepEqual(await gitCommit("t", f), { commit: SHA, branch: "refs/tags/v1.2.0", reason: null });
+  for (const id of ["x1", "x2", "x3", "x4", "x5"]) {
+    assert.deepEqual(await gitCommit(id, f), { commit: null, branch: null, reason: "unreadable HEAD" }, id);
+    assert.deepEqual(calls.filter(u => u.startsWith(`modules/${id}/`)), [`modules/${id}/.git/HEAD`], `${id}: nothing but HEAD is read`);
+  }
+  assert.ok(calls.every(u => !u.split("/").includes("..")), "no .. segment is ever fetched");
   assert.ok(calls.every(u => u.startsWith("modules/")), "only relative module paths are fetched");
   assert.ok(!calls.some(u => u.includes("config")), ".git/config is never read");
 });

@@ -43,6 +43,7 @@
       "Preview": "Preview",
       "PreviewRefresh": "Show the file",
       "PreviewEmpty": "Click \"Show the file\" to see exactly what the exported file will contain.",
+      "PreviewNote": "The preview shows at most the first 300,000 characters. Export builds the file again with fresh snapshots and anything recorded since, so open the downloaded file and check it before you share it.",
       "PreviewSize": "The whole file, {size}. Exporting builds it again, with what happened since.",
       "PreviewTruncated": "The first {shown} characters of {size}. The export has everything.",
       "Export": "Export file",

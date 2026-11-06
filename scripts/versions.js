@@ -14,6 +14,8 @@ const SHA_RE = /^[0-9a-f]{40}$/;
 const SLUG_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9._-]{1,100}$/;
 const TAG_RE = /^[\w.+-]{1,40}$/;
 const BRANCH_RE = /^[\w.\/-]{1,100}$/;
+/** A ref HEAD may point at: refs/heads/… or refs/tags/…, segments of word characters, dots and dashes, no ".." or empty segment. */
+const REF_RE = /^refs\/(?:heads|tags)\/(?:[\w-][\w.-]*)(?:\/[\w-][\w.-]*)*$/;
 
 /** "owner/repo" of a github.com URL, else null. */
 export function repoSlug(url) {
@@ -54,8 +56,11 @@ export async function gitCommit(id, fetchFn = globalThis.fetch) {
   const head = (await fetchText(fetchFn, `${base}HEAD`))?.trim();
   if (!head) return { commit: null, branch: null, reason: "not a git clone, or .git not served" };
   if (SHA_RE.test(head)) return { commit: head, branch: null, reason: "detached HEAD" };
-  const ref = head.match(/^ref:\s*(refs\/[\w.\/-]+)$/)?.[1];
-  if (!ref) return { commit: null, branch: null, reason: "unreadable HEAD" };
+  const ref = head.match(/^ref:\s*(\S+)$/)?.[1];
+  // Only refs/heads/… or refs/tags/…, never ".." or an empty segment: the fetch must stay inside modules/<id>/.git/.
+  if (!ref || !REF_RE.test(ref) || ref.split("/").some(seg => !seg || seg === "." || seg === ".." || seg.endsWith(".lock"))) {
+    return { commit: null, branch: null, reason: "unreadable HEAD" };
+  }
   const branch = ref.replace(/^refs\/heads\//, "");
   const safeBranch = BRANCH_RE.test(branch) ? branch : null;
   const loose = (await fetchText(fetchFn, `${base}${ref}`))?.trim();

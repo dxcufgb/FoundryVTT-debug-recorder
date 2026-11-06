@@ -16,7 +16,9 @@ const SEED = {
   newActor: "Zorbath Newcomer", worldTitle: "Secret Campaign of Doom", worldId: "my-secret-world",
   worldDescription: "Only for my closest friends on Thursdays", chat: "The dragon sleeps under the old mill",
   host: "skivbrytare.local", hostPort: "skivbrytare.local:30000", ip4: "192.168.1.20", ip4b: "10.0.0.5",
-  ip6: "fe80::1ff:fe23:4567:890a", email: "kalle@example.com", folder: "Villains of Thornwick"
+  ip6: "fe80::1ff:fe23:4567:890a", email: "kalle@example.com", folder: "Villains of Thornwick",
+  // Only in a journal page (not in chat), so chat learning can't hide a gap in journal text.
+  journalText: "The vault code is nine four seven beneath the lighthouse", journalBlock: "Bribe the harbourmaster with amber wine"
 };
 const IDS = { gm: "GmUser0000000001", player: "PlUser0000000002", actor: "Act0r00000000001", item: "Item000000000001",
   scene: "Scene00000000001", token: "Token00000000001", journal: "Journ00000000001", page: "Page000000000001",
@@ -78,7 +80,7 @@ const scene = {
 };
 const journal = {
   id: IDS.journal, name: SEED.journal, ownership: { default: 3, [IDS.player]: 2 },
-  pages: [{ id: IDS.page, name: SEED.page, text: { content: `<p>${SEED.chat}</p>` } }],
+  pages: [{ id: IDS.page, name: SEED.page, text: { content: `<h2>Notes</h2><p>${SEED.journalText}. Then go home.</p><ul><li>${SEED.journalBlock}</li></ul>` } }],
   flags: { [FAKE]: { store: "shared", quests: { Q1x2Q3x4Q5x6Q7x8: { title: SEED.journal, status: "active" } } } }
 };
 
@@ -246,6 +248,9 @@ test("full pipeline: record, export, and no seeded value anywhere in the file", 
   // Breadcrumbs: only for selected modules.
   api.breadcrumb(FAKE, "app.render", { actor: SEED.actor, url: `${ORIGIN}/x`, ip: SEED.ip4, docId: IDS.actor, scene: IDS.scene, name: SEED.token, n: 3 });
   api.breadcrumb("lively-tokens-x", "not.selected", { x: 1 });
+  // A module quoting journal text in a free-form field: the whole text, one paragraph's sentence, and a list item.
+  api.breadcrumb(FAKE, "journal.quote", { snippet: SEED.journalText, line: `found: ${SEED.journalBlock}!` });
+  console.error(moduleError(`could not parse "${SEED.journalText}"`));
   api.breadcrumb(FAKE, "huge", Object.fromEntries(Array.from({ length: 150 }, (_, i) => [`k${i}`, "y".repeat(40)])));
 
   console.error(moduleError(`Sheet failed: ${leaky}`, TypeError));

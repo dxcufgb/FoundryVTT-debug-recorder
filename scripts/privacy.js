@@ -354,11 +354,21 @@ export class Redactor {
     }
   }
 
-  addText(text) {
-    const plain = stripHTML(text);
+  /**
+   * Learns a text (plain or HTML): the whole text, each block (paragraph, list item, heading, line) and each sentence of
+   * 12+ characters, so a fragment of it quoted in a message is scrubbed too. At most `maxChars` are read.
+   */
+  addText(text, { maxChars = 20000 } = {}) {
+    const raw = String(text ?? "").slice(0, maxChars);
+    const plain = stripHTML(raw);
     if (plain.length < 3) return;
     this.#literals.add(plain, "text");
-    for (const part of plain.split(/(?<=[.!?…])\s+|\n+/)) if (part.length >= 12) this.#literals.add(part, "text");
+    const blocks = raw.split(/<\/(?:p|li|h\d|div|blockquote|td|th|section|pre)>|<br\s*\/?>|\n+/i).map(stripHTML);
+    for (const block of blocks) {
+      if (block.length < 12) continue;
+      this.#literals.add(block, "text");
+      for (const part of block.split(/(?<=[.!?…:;])\s+/)) if (part.length >= 12) this.#literals.add(part, "text");
+    }
   }
 
   addWorld(world) {
@@ -406,6 +416,13 @@ export class Redactor {
         }
       }
       if (type === "Drawing" && texts) this.addText(doc.text);
+      // Journal page text (text pages; the markdown source too) is never recorded.
+      if (type === "JournalEntryPage" && texts) {
+        this.addText(doc.text?.content);
+        if (doc.text?.markdown) this.addText(doc.text.markdown);
+        this.addText(doc.image?.caption);
+        this.addText(doc.video?.caption);
+      }
       if (!deep) return;
       for (const [key, childType] of EMBEDDED[type] ?? []) {
         for (const child of listOf(doc[key])) this.absorbDocument(child, childType, { deep: true, texts });

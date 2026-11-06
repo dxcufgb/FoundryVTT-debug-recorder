@@ -196,7 +196,7 @@ export class RecorderApp extends HandlebarsApplicationMixin(ApplicationV2) {
       if (recorder.getState().hasData) {
         const ok = await DialogV2.confirm({
           window: { title: t("Confirm.ReplaceTitle") },
-          content: `<p>${t("Confirm.ReplaceBody")}</p>`,
+          content: `<p>${escapeHTML(t("Confirm.ReplaceBody"))}</p>`,
           rejectClose: false
         });
         if (!ok) return;
@@ -264,7 +264,7 @@ export class RecorderApp extends HandlebarsApplicationMixin(ApplicationV2) {
       if (recorder.isRecording()) return;
       const ok = await DialogV2.confirm({
         window: { title: t("Confirm.ClearTitle") },
-        content: `<p>${t("Confirm.ClearBody")}</p>`,
+        content: `<p>${escapeHTML(t("Confirm.ClearBody"))}</p>`,
         rejectClose: false
       });
       if (!ok) return;
