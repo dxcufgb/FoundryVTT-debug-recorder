@@ -2,6 +2,7 @@ import { MODULE_ID, MAX_EVENTS, MAX_SNAPSHOT_BYTES, MAX_BREADCRUMB_BYTES, SNAPSH
 import { Redactor } from "./privacy.js";
 import { environmentHeader, moduleState } from "./environment.js";
 import { installCapture, uninstallCapture } from "./capture.js";
+import { codeVersions, modulesInEvents, parseFrames, resolveFrames } from "./versions.js";
 
 /*
  * The recording: one session at a time, on the GM client that started it (player clients follow in v0.2).
@@ -107,7 +108,12 @@ export function record(type, fields = {}, { module = null, level = "info", colla
   s.counts.byType[type] = (s.counts.byType[type] ?? 0) + 1;
   if (level === "error") s.counts.errors++;
   if (level === "warn") s.counts.warnings++;
-  const ev = { t: now, type, level, ...(module ? { module } : {}), ...clean };
+  const ev = { seq: 0, t: now, type, level, ...(module ? { module } : {}), ...clean };
+  // Structured frames ({module, path, line, col, fn} with the version), parsed from the already cleaned stack.
+  if (typeof ev.stack === "string") {
+    const frames = resolveFrames(parseFrames(ev.stack));
+    if (frames.length) ev.frames = frames;
+  }
   const collapsible = collapse && (level === "error" || level === "warn");
   const sig = collapsible ? `${type}|${module}|${ev.message ?? ""}|${ev.stack ?? ""}` : null;
   if (sig) {
@@ -124,6 +130,7 @@ export function record(type, fields = {}, { module = null, level = "info", colla
     s.counts.droppedByType[type] = (s.counts.droppedByType[type] ?? 0) + 1;
     return null;
   }
+  ev.seq = s.events.length;
   s.events.push(ev);
   if (sig) s.collapseIndex.set(sig, ev);
   return ev;
@@ -299,7 +306,14 @@ export async function prepareExport(selectedIds = []) {
   }
   await takeSnapshots("export", s);
   if (s.recording || s.adHoc) takeStates("stateEnd", s);
+  // Exact code of every selected module and of every module named in an event (version, tag, repo, commit).
+  s.versions = await codeVersions([...s.selected, ...modulesInEvents(s.events)]);
   return s;
+}
+
+/** The stored (already redacted) events of the current or last recording, for the issue summary. */
+export function storedEvents() {
+  return session?.events ?? [];
 }
 
 /** A small summary for the UI. */

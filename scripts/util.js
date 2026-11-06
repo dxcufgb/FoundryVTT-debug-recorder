@@ -14,6 +14,8 @@ export const SCHEMA_VERSION = 1;
 export const MAX_EVENTS = 10000;
 /** Exports bigger than this are refused (GitHub issue attachments). */
 export const MAX_EXPORT_BYTES = 20 * 1024 * 1024;
+/** JSON bigger than this is exported as a .zip automatically (when the browser can zip). */
+export const AUTO_ZIP_BYTES = 5 * 1024 * 1024;
 /** A module snapshot bigger than this is replaced with {truncated, bytes}. */
 export const MAX_SNAPSHOT_BYTES = 256 * 1024;
 /** A breadcrumb's data bigger than this is replaced with {truncated, bytes}. */

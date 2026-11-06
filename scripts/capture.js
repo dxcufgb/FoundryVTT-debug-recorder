@@ -1,5 +1,5 @@
 import { MODULE_ID } from "./util.js";
-import { moduleFromStack } from "./privacy.js";
+import { moduleFromStack, errorName } from "./privacy.js";
 
 /*
  * Event capture while recording (spec items 19–24). Installed at Start, removed at Stop.
@@ -102,7 +102,7 @@ export function installCapture(sink, target = {}) {
           return;
         }
         if (!selected && level !== "error") return;
-        const ev = sink.record("console", { consoleLevel: level, message, stack: err?.stack ?? stack, data }, { module, level: level === "error" ? "error" : level === "warn" ? "warn" : "info" });
+        const ev = sink.record("console", { consoleLevel: level, message, errorClass: err ? errorName(err) : undefined, stack: err?.stack ?? stack, data }, { module, level: level === "error" ? "error" : level === "warn" ? "warn" : "info" });
         remember(err, ev);
       });
       return original.apply(this, args);
@@ -116,7 +116,7 @@ export function installCapture(sink, target = {}) {
     const err = asError(event?.error);
     if (err && s.seen.has(err)) return;
     const location = event?.filename ? `${event.filename}:${event.lineno ?? 0}:${event.colno ?? 0}` : "";
-    const ev = sink.record("error", { message: err?.message ?? String(event?.message ?? ""), error: err ?? undefined, stack: err?.stack ?? location },
+    const ev = sink.record("error", { message: err?.message ?? String(event?.message ?? ""), errorClass: err ? errorName(err) : undefined, stack: err?.stack ?? location },
       { module: moduleFromStack(err?.stack ?? location), level: "error" });
     remember(err, ev);
   });
@@ -124,7 +124,7 @@ export function installCapture(sink, target = {}) {
     const reason = event?.reason;
     const err = asError(reason);
     if (err && s.seen.has(err)) return;
-    const ev = sink.record("rejection", { message: err?.message ?? String(reason ?? ""), error: err ?? undefined, stack: err?.stack },
+    const ev = sink.record("rejection", { message: err?.message ?? String(reason ?? ""), errorClass: err ? errorName(err) : undefined, stack: err?.stack },
       { module: moduleFromStack(err?.stack), level: "error" });
     remember(err, ev);
   });
@@ -147,7 +147,7 @@ export function installCapture(sink, target = {}) {
         Object.assign(known, sink.redactFields?.(fields) ?? {});
         return;
       }
-      const ev = sink.record("hookError", { ...fields, message: err?.message ?? String(error ?? ""), error: err ?? undefined, stack: err?.stack },
+      const ev = sink.record("hookError", { ...fields, message: err?.message ?? String(error ?? ""), errorClass: err ? errorName(err) : undefined, stack: err?.stack },
         { module: moduleFromStack(err?.stack), level: "error" });
       remember(err, ev);
     }));

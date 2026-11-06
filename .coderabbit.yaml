@@ -22,6 +22,12 @@ reviews:
         what they wrap, and must be removed at Stop. The public API (register, breadcrumb, isRecording and the
         "dxcufgbs-debug-recorder.ready" hook) is locked: other modules code against these exact names.
         environment.js reads no names, chat, journal text or flag values (only counts, key shapes and sizes).
+    - path: "scripts/{versions,zip}.js"
+      instructions: |
+        versions.js reads a module's commit only with same-origin GETs of relative modules/<id>/.git/ paths (HEAD, the
+        ref file, packed-refs), never .git/config, and changes nothing on the server. A module's url, manifest or
+        download may only leave as the validated repo slug and release tag, never as a URL. zip.js has no Foundry
+        globals and no dependencies (unit tested in Node and with the unzip CLI).
     - path: "tests/**"
       instructions: |
         tests/pipeline.test.mjs is the privacy gate: it seeds recognisable private values and fails if any reaches

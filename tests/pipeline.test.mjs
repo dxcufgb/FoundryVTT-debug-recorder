@@ -3,6 +3,7 @@
 // shows up in the exported file or the issue summary. Run with: node --test tests/*.test.mjs
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import zlib from "node:zlib";
 
 /* -------------------------------------------- */
 /*  Seeds: none of these may reach the file     */
@@ -85,11 +86,14 @@ const modules = new Collection([
   { id: "dxcufgbs-debug-recorder", title: "Dxcufgb's Debug Recorder", version: "0.1.0", active: true, authors: new Set([{ name: "Dxcufgb" }]) },
   {
     id: FAKE, title: "Dxcufgb's Fake Module", version: "1.2.0", active: true, socket: true, authors: new Set([{ name: "Dxcufgb" }]),
+    // Public package metadata; the manifest is served from the instance itself, which must never reach the file.
+    url: "https://github.com/dxcufgb/FoundryVTT-fake", manifest: `${ORIGIN}/modules/${FAKE}/releases/download/v1.2.0/module.json`,
+    download: "https://github.com/dxcufgb/FoundryVTT-fake/releases/latest/download/module.zip",
     compatibility: { minimum: "13", verified: "13" },
     relationships: { requires: new Set([{ id: "lib-wrapper", type: "module" }]), recommends: new Set([{ id: "dice-so-nice", type: "module" }]) },
     api: { open() {}, get count() { throw new Error("getters must not be called"); }, version: 2 }
   },
-  { id: "dxcufgbs-late", title: "Dxcufgb's Late Module", version: "0.3.0", active: true, authors: [{ name: "Dxcufgb" }] },
+  { id: "dxcufgbs-late", title: "Dxcufgb's Late Module", version: "0.3.0", active: true, authors: [{ name: "Dxcufgb" }], url: `${ORIGIN}/late`, download: `${ORIGIN}/late.zip` },
   { id: "lively-tokens-x", title: "Lively Tokens", version: "2.0.0", active: true, authors: [{ name: "Dxcufgb" }] },
   { id: "lib-wrapper", title: "libWrapper", version: "1.13.0", active: true, authors: [] },
   { id: "old-thing", title: "Old", version: "0.0.1", active: false, authors: [] }
@@ -113,6 +117,14 @@ function fakeElement() {
 }
 
 let saved = null;
+const SHA_FAKE = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1234";
+const SHA_LATE = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb5678";
+const GIT_FILES = {
+  [`modules/${FAKE}/.git/HEAD`]: "ref: refs/heads/main\n",
+  [`modules/${FAKE}/.git/refs/heads/main`]: `${SHA_FAKE}\n`,
+  "modules/dxcufgbs-late/.git/HEAD": `${SHA_LATE}\n`
+};
+const fetchCalls = [];
 const realConsole = { error: console.error, warn: console.warn, log: console.log, info: console.info };
 
 function install() {
@@ -141,6 +153,14 @@ function install() {
   g.addEventListener = (type, fn) => { (windowListeners[type] ??= []).push(fn); };
   g.removeEventListener = (type, fn) => { windowListeners[type] = (windowListeners[type] ?? []).filter(f => f !== fn); };
   g.document = { createElement: fakeElement, body: fakeElement() };
+  // Same-origin static files: the fake module and the late module are git clones (.git served, like Foundry does).
+  g.fetch = async url => {
+    fetchCalls.push(String(url));
+    const body = GIT_FILES[url];
+    return body === undefined
+      ? { ok: false, status: 404, headers: { get: () => "text/html" }, text: async () => `<html>${ORIGIN}</html>` }
+      : { ok: true, status: 200, headers: { get: () => "application/octet-stream" }, text: async () => body };
+  };
   g.game = {
     version: "13.348", release: { generation: 13, build: 348, channel: "stable" },
     system: { id: "dnd5e", version: "5.1.0" },
@@ -274,6 +294,7 @@ test("the file is complete and self-describing", () => {
   assert.deepEqual(file.selectedModules, [FAKE, "dxcufgbs-late"]);
   assert.ok(file.recording.startedAt && file.recording.durationMs >= 0);
   assert.deepEqual(Object.keys(file).at(-1), "redaction");
+  assert.deepEqual(Object.keys(file).slice(0, 8), ["format", "schemaVersion", "recorderVersion", "createdAt", "recording", "selectedModules", "digest", "versions"]);
   assert.equal(file.environment.foundry.version, "13.348");
   assert.equal(file.environment.system.id, "dnd5e");
   assert.equal(file.environment.browser.family, "Chrome");
@@ -323,6 +344,37 @@ test("the file is complete and self-describing", () => {
   assert.equal(file.events.find(e => e.key === "huge").data.truncated, true);
   assert.ok(file.events.find(e => e.type === "error").stack.includes(`modules/${FAKE}/scripts/sheet.js:42:7`));
 
+  // Exact code per module: version, tag, repo slug (never a URL), commit from the served .git.
+  assert.deepEqual(file.versions.modules[FAKE], { version: "1.2.0", tag: "v1.2.0", repo: "dxcufgb/FoundryVTT-fake", commit: SHA_FAKE, branch: "main", commitReason: null });
+  assert.deepEqual(file.versions.modules["dxcufgbs-late"], { version: "0.3.0", tag: null, repo: null, commit: SHA_LATE, branch: null, commitReason: null });
+  assert.deepEqual(file.versions.core, { foundry: "13.348", generation: 13, build: 348 });
+  assert.ok(fetchCalls.length && fetchCalls.every(u => u.startsWith("modules/") && !u.includes("config")), "only relative .git paths");
+
+  // Structured frames with the exact code of each frame.
+  const errorEvent = file.events.find(e => e.type === "error");
+  assert.deepEqual(errorEvent.frames[0], { fn: "FakeSheet.render", line: 42, col: 7, module: FAKE, path: "scripts/sheet.js", version: "1.2.0", tag: "v1.2.0", commit: SHA_FAKE });
+  assert.deepEqual(errorEvent.frames[1], { fn: null, line: 1000, col: 3, core: true, path: "scripts/foundry.mjs", foundry: "13.348", build: 348 });
+  assert.equal(typeof errorEvent.stack, "string");
+
+  // The digest: one group per distinct error / warning, most frequent first, with its context.
+  const digest = file.digest;
+  assert.ok(digest.length >= 6);
+  for (let i = 1; i < digest.length; i++) {
+    assert.ok(digest[i - 1].count > digest[i].count || (digest[i - 1].count === digest[i].count && digest[i - 1].firstT <= digest[i].firstT), "sorted");
+  }
+  assert.equal(digest[0].count, 3);
+  const sheetGroup = digest.find(g => g.type === "console" && g.message.startsWith("TypeError: Sheet failed"));
+  assert.equal(sheetGroup.top, `modules/${FAKE}/scripts/sheet.js:42:7`);
+  assert.equal(sheetGroup.module, FAKE);
+  assert.equal(sheetGroup.commit, SHA_FAKE);
+  assert.equal(sheetGroup.topFrame.commit, SHA_FAKE);
+  const crumbSeq = file.events.find(e => e.key === "app.render").seq;
+  assert.ok(sheetGroup.before.breadcrumbs.includes(crumbSeq));
+  assert.equal(file.events[sheetGroup.seq].message, sheetGroup.message);
+  const notifGroup = digest.find(g => g.type === "notification");
+  assert.ok(digest.find(g => g.seq > notifGroup.seq).before.notifications.includes(notifGroup.seq));
+  assert.ok(file.summary.includes("### Error digest") && file.summary.includes(SHA_FAKE.slice(0, 7)));
+
   for (const cat of ["names", "texts", "worldStrings", "hosts", "ips", "ids", "droppedKeys", "worldPaths", "emails"]) {
     assert.ok(file.redaction[cat] > 0, `redaction report counts no ${cat}`);
   }
@@ -331,10 +383,25 @@ test("the file is complete and self-describing", () => {
 test("export and issue summary contain no seeded value", async () => {
   const result = await exporter.exportFile({ steps: SEED.actor }, []);
   assert.equal(result.ok, true);
+  assert.equal(result.zipped, false);
   assert.match(saved.filename, /^dxcufgbs-debug-\d{4}-\d\d-\d\dT\d\d-\d\d-\d\dZ\.json$/);
-  const summary = exporter.issueSummary([FAKE]);
+  const plain = saved.data;
+
+  const zipped = await exporter.exportFile({ steps: SEED.actor }, [], { zip: true });
+  assert.equal(zipped.zipped, true);
+  assert.equal(saved.type, "application/zip");
+  assert.match(saved.filename, /^dxcufgbs-debug-\d{4}-\d\d-\d\dT\d\d-\d\d-\d\dZ\.zip$/);
+  const view = new DataView(saved.data.buffer, saved.data.byteOffset, saved.data.byteLength);
+  const nameLen = view.getUint16(26, true);
+  const inner = zlib.inflateRawSync(saved.data.subarray(30 + nameLen, 30 + nameLen + view.getUint32(18, true))).toString("utf8");
+  assert.equal(new TextDecoder().decode(saved.data.subarray(30, 30 + nameLen)), saved.filename.replace(/\.zip$/, ".json"));
+  assert.equal(JSON.parse(inner).format, "dxcufgbs-debug-recorder");
+
+  const summary = await exporter.issueSummary([FAKE]);
   assert.ok(summary.includes("13.348") && summary.includes("dnd5e 5.1.0") && summary.includes(`${FAKE}\`) 1.2.0`));
-  for (const text of [saved.data, summary]) {
+  assert.ok(summary.includes("v1.2.0") && summary.includes(SHA_FAKE.slice(0, 7)) && summary.includes("dxcufgb/FoundryVTT-fake"));
+  assert.ok(summary.includes("**Errors (most frequent first):**") && summary.includes("×3"));
+  for (const text of [plain, inner, summary]) {
     const lower = text.toLowerCase();
     for (const seed of [...Object.values(SEED), ...Object.values(IDS), ORIGIN]) assert.ok(!lower.includes(String(seed).toLowerCase()), `leak: ${seed}`);
   }

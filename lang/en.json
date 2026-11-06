@@ -46,6 +46,8 @@
       "PreviewSize": "The whole file, {size}. Exporting builds it again, with what happened since.",
       "PreviewTruncated": "The first {shown} characters of {size}. The export has everything.",
       "Export": "Export file",
+      "Zip": ".zip",
+      "ZipHint": "Export as a .zip (smaller to upload). Files over {size} are always zipped.",
       "CopySummary": "Copy issue summary",
       "CopyByHand": "The browser didn't allow copying. Select the text below and copy it (Ctrl+C).",
       "Clear": "Clear"
@@ -66,6 +68,7 @@
       "AutoStopped": "Debug Recorder: recording stopped by itself after {minutes} minutes.",
       "LostOnReload": "Debug Recorder: the page was reloaded during a recording, so that recording is lost.",
       "Exported": "Debug Recorder: saved {file} ({size}).",
+      "NoZip": "Debug Recorder: this browser can't make .zip files, so the plain JSON file was saved.",
       "TooBig": "Debug Recorder: the file would be {size}, more than {max}. Record a shorter session or fewer modules.",
       "Copied": "Debug Recorder: issue summary copied.",
       "Cleared": "Debug Recorder: recording cleared.",

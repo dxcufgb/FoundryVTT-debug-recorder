@@ -75,6 +75,9 @@
 </div>
 
 <footer class="dxdr-footer">
+  {{#if canZip}}
+  <label class="checkbox dxdr-zip" data-tooltip="{{zipHint}}"><input type="checkbox" data-zip {{checked zip}}> {{localize "DXDR.App.Zip"}}</label>
+  {{/if}}
   <button type="button" data-action="exportFile"><i class="fa-solid fa-file-export" inert></i> {{localize "DXDR.App.Export"}}</button>
   <button type="button" data-action="copySummary"><i class="fa-solid fa-clipboard" inert></i> {{localize "DXDR.App.CopySummary"}}</button>
   <button type="button" data-action="clear" {{disabled (or recording (not hasData))}}><i class="fa-solid fa-trash" inert></i> {{localize "DXDR.App.Clear"}}</button>

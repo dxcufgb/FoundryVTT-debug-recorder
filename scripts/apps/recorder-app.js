@@ -1,4 +1,5 @@
-import { MODULE_ID, TEMPLATE_PATH, t, escapeHTML, selectableModules, formatDuration, formatBytes } from "../util.js";
+import { MODULE_ID, TEMPLATE_PATH, AUTO_ZIP_BYTES, t, escapeHTML, selectableModules, formatDuration, formatBytes } from "../util.js";
+import { canZip } from "../zip.js";
 import * as recorder from "../recorder.js";
 import { buildFile, exportFile, issueSummary } from "../export.js";
 
@@ -66,6 +67,8 @@ export class RecorderApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** What the GM typed, kept across re-renders. */
   report = { steps: "", expected: "", actual: "" };
+  /** "Export as .zip" ticked (also used automatically for big files). */
+  zip = false;
   preview = { text: "", bytes: 0, truncated: false };
   #ticker = null;
   #unsubscribe = null;
@@ -105,6 +108,9 @@ export class RecorderApp extends HandlebarsApplicationMixin(ApplicationV2) {
       dropped: state.dropped,
       autoStop,
       report: this.report,
+      zip: this.zip,
+      canZip: canZip(),
+      zipHint: t("App.ZipHint", { size: formatBytes(AUTO_ZIP_BYTES) }),
       preview: this.preview.text,
       previewInfo: this.preview.text
         ? t(this.preview.truncated ? "App.PreviewTruncated" : "App.PreviewSize", { size: formatBytes(this.preview.bytes), shown: PREVIEW_LIMIT.toLocaleString() })
@@ -118,6 +124,7 @@ export class RecorderApp extends HandlebarsApplicationMixin(ApplicationV2) {
     for (const field of root.querySelectorAll("[data-report]")) {
       field.addEventListener("input", () => { this.report[field.dataset.report] = field.value; });
     }
+    root.querySelector("input[data-zip]")?.addEventListener("change", ev => { this.zip = ev.currentTarget.checked; });
     for (const box of root.querySelectorAll("input[data-module]")) {
       box.addEventListener("change", () => this.#saveSelection());
     }
@@ -226,7 +233,7 @@ export class RecorderApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onExport() {
     await this.#guard(async () => {
       const ids = recorder.getState().hasData ? recorder.getState().selected : this.#checkedModules();
-      const result = await exportFile(this.report, ids);
+      const result = await exportFile(this.report, ids, { zip: this.zip });
       this.#setPreview(result.json);
       this.render();
     });
@@ -235,7 +242,7 @@ export class RecorderApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onCopySummary() {
     await this.#guard(async () => {
       const ids = recorder.getState().hasData ? recorder.getState().selected : this.#checkedModules();
-      const text = issueSummary(ids);
+      const text = await issueSummary(ids);
       try {
         if (game.clipboard?.copyPlainText) await game.clipboard.copyPlainText(text);
         else await navigator.clipboard.writeText(text);
