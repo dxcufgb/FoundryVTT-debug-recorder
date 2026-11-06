@@ -37,8 +37,15 @@
   padding: 0;
   color: var(--dxdr-text);
 }
+.dxdr-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .dxdr-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0.75rem;
   display: flex;
