@@ -1,11 +1,14 @@
-import { MODULE_ID, MAX_EVENTS, MAX_SNAPSHOT_BYTES, MAX_BREADCRUMB_BYTES, SNAPSHOT_TIMEOUT_MS, jsonSize, clientLabel, t } from "./util.js";
+import { MODULE_ID, MAX_EVENTS, MAX_RECORDINGS, MAX_SNAPSHOT_BYTES, MAX_BREADCRUMB_BYTES, SNAPSHOT_TIMEOUT_MS, jsonSize, clientLabel, t } from "./util.js";
 import { Redactor } from "./privacy.js";
 import { environmentHeader, moduleState } from "./environment.js";
 import { installCapture, uninstallCapture } from "./capture.js";
 import { codeVersions, modulesInEvents, parseFrames, resolveFrames } from "./versions.js";
 
 /*
- * The recording: one session at a time, on the GM client that started it (player clients follow in v0.2).
+ * The recordings: a list of sessions on the GM client (player clients follow in v0.2), one bug each. At most one
+ * records at a time; the stopped ones stay in the list (newest last, at most MAX_RECORDINGS) until the GM deletes
+ * them or reloads the page. Each has its own Redactor (pseudonyms are per recording), a number, the label the GM
+ * gives it and its own report fields; the label and report are scrubbed when they are written to the file.
  *
  * Everything is redacted the moment it is stored (session.redactor), never only at export. The session keeps:
  * the environment header taken at Start, each selected module's state at Start and at the end, the registered
@@ -18,8 +21,12 @@ import { codeVersions, modulesInEvents, parseFrames, resolveFrames } from "./ver
 /** moduleId → {snapshot} from API.register, kept for the whole page life (load order doesn't matter). */
 const registrants = new Map();
 const listeners = new Set();
-/** The current or last recording, or null. */
+/** Every recording of this page, oldest first. */
+const sessions = [];
+/** The recording that is running, or null. */
 let session = null;
+/** Numbers recordings 1, 2, 3… for their default label (never reused on this page). */
+let nextNumber = 1;
 
 /** Document types whose names are learnt again when one is created or renamed during a recording. */
 const NAME_TYPES = ["User", "Actor", "Item", "Scene", "Token", "Combatant", "Combat", "JournalEntry", "JournalEntryPage",
@@ -35,7 +42,7 @@ function emit() {
   }
 }
 
-/** Calls fn(state) whenever recording starts, stops or is cleared. Returns an unsubscribe function. */
+/** Calls fn(state) whenever a recording starts, stops or is deleted. Returns an unsubscribe function. */
 export function subscribe(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
@@ -198,6 +205,10 @@ function newSession(selected) {
   const redactor = Redactor.fromWorld(game, globalThis.location);
   const user = game.user;
   return {
+    id: null,
+    number: 0,
+    label: "",
+    report: { steps: "", expected: "", actual: "" },
     redactor,
     selected: new Set(selected),
     recording: false,
@@ -238,10 +249,21 @@ async function setStatus(value) {
   }
 }
 
-/** GM: starts a recording of the selected modules. Replaces any earlier (stopped) recording. */
+/** Whether another recording fits in the list (MAX_RECORDINGS). */
+export function canStart() {
+  return sessions.length < MAX_RECORDINGS;
+}
+
+/**
+ * GM: starts a new recording of the selected modules, added to the list (earlier recordings are kept). Refused while
+ * one is running or when the list is full.
+ */
 export async function start(selectedIds, { autoStopMinutes = 30 } = {}) {
-  if (!game.user?.isGM || isRecording()) return false;
+  if (!game.user?.isGM || isRecording() || !canStart()) return false;
   const s = newSession(selectedIds ?? []);
+  s.number = nextNumber++;
+  s.id = `r${s.number}`;
+  sessions.push(s);
   session = s;
   s.recording = true;
   s.startedAt = Date.now();
@@ -261,7 +283,7 @@ export async function start(selectedIds, { autoStopMinutes = 30 } = {}) {
   return true;
 }
 
-/** GM: stops the recording (the data stays for export until Clear or the next Start). */
+/** GM: stops the running recording (it stays in the list for export until it is deleted). */
 export async function stop({ auto = false } = {}) {
   const s = session;
   if (!s?.recording) return false;
@@ -278,26 +300,77 @@ export async function stop({ auto = false } = {}) {
   s.recording = false;
   s.stoppedAt = Date.now();
   s.autoStopped = auto;
+  if (session === s) session = null;
   await setStatus({ recording: false });
   if (auto) ui.notifications?.info(t("Notify.AutoStopped", { minutes: s.autoStopMinutes }));
   emit();
   return true;
 }
 
-/** Forgets the stopped recording (and its pseudonym mapping). */
-export function clear() {
-  if (isRecording()) return false;
-  session = null;
-  emit();
-  return true;
+/** A recording by id (or null). */
+function find(id) {
+  return sessions.find(s => s.id === id) ?? null;
+}
+
+/** The running recording, else the newest one, else null. */
+function latest() {
+  return session ?? sessions.at(-1) ?? null;
 }
 
 /**
- * The session to export, with fresh "export" snapshots and the end state. Without any recording, a one-off session
- * with only the environment header and the selected modules' state and snapshots.
+ * Deletes recordings (and their pseudonym mappings). The running one is never deleted (stop it first). Returns the
+ * number deleted.
  */
-export async function prepareExport(selectedIds = []) {
-  let s = session;
+export function remove(ids = []) {
+  const wanted = new Set(ids);
+  let removed = 0;
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    const s = sessions[i];
+    if (!wanted.has(s.id) || s.recording) continue;
+    sessions.splice(i, 1);
+    removed++;
+  }
+  if (removed) emit();
+  return removed;
+}
+
+/** Deletes every stopped recording. */
+export function clear() {
+  if (isRecording()) return false;
+  remove(sessions.map(s => s.id));
+  return true;
+}
+
+/** GM: names a recording (the label is scrubbed when it is written to the file). Doesn't re-render the window. */
+export function rename(id, label) {
+  const s = find(id);
+  if (!s) return false;
+  s.label = String(label ?? "").slice(0, 120);
+  return true;
+}
+
+/** GM: one report field (steps / expected / actual) of a recording, scrubbed when it is written to the file. */
+export function setReport(id, field, value) {
+  const s = find(id);
+  if (!s || !(field in s.report)) return false;
+  s.report[field] = String(value ?? "");
+  return true;
+}
+
+/** The label, number and report of a recording (copies), or null. */
+export function getRecording(id) {
+  const s = find(id);
+  return s ? { id: s.id, number: s.number, label: s.label, report: { ...s.report }, selected: [...s.selected] } : null;
+}
+
+/**
+ * The session to export, with fresh "export" snapshots and the end state: the recording `id`, or without an id the
+ * running / newest one. Without any recording, a one-off session with only the environment header and the selected
+ * modules' state and snapshots. Throws for an id that isn't in the list.
+ */
+export async function prepareExport(selectedIds = [], { id = null } = {}) {
+  let s = id ? find(id) : latest();
+  if (id && !s) throw new Error(`unknown recording ${id}`);
   if (!s) {
     s = newSession(selectedIds);
     s.environment = s.redactor.redact(environmentHeader([...s.selected]), { maxDepth: 8 });
@@ -311,25 +384,57 @@ export async function prepareExport(selectedIds = []) {
   return s;
 }
 
-/** The stored (already redacted) events of the current or last recording, for the issue summary. */
-export function storedEvents() {
-  return session?.events ?? [];
+/** The stored (already redacted) events of recording `id`, or of the running / newest one, for the issue summary. */
+export function storedEvents(id = null) {
+  return (id ? find(id) : latest())?.events ?? [];
 }
 
-/** A small summary for the UI. */
+/** A small summary of one recording for the UI (null when there is none). */
+function summaryOf(s) {
+  if (!s) return null;
+  return {
+    id: s.id,
+    number: s.number,
+    label: s.label,
+    recording: !!s.recording,
+    startedAt: s.startedAt,
+    elapsedMs: (s.recording ? Date.now() : s.stoppedAt) - s.startedAt,
+    autoStopped: !!s.autoStopped,
+    events: s.events.length,
+    total: s.counts.total,
+    errors: s.counts.errors,
+    warnings: s.counts.warnings,
+    dropped: s.counts.dropped,
+    selected: [...s.selected],
+    autoStopMinutes: s.autoStopMinutes
+  };
+}
+
+/** A recording's summary by id (null when it isn't in the list). */
+export function recordingState(id) {
+  return summaryOf(find(id));
+}
+
+/**
+ * A small summary for the UI: the counters of the running / newest recording at the top level (as in v0.1), the
+ * running one's id, and every recording (oldest first).
+ */
 export function getState() {
-  const s = session;
+  const s = summaryOf(latest());
   return {
     recording: !!s?.recording,
-    hasData: !!s,
+    hasData: sessions.length > 0,
+    activeId: session?.id ?? null,
     startedAt: s?.startedAt ?? null,
-    elapsedMs: s ? (s.recording ? Date.now() : s.stoppedAt) - s.startedAt : 0,
-    events: s?.events.length ?? 0,
-    total: s?.counts.total ?? 0,
-    errors: s?.counts.errors ?? 0,
-    warnings: s?.counts.warnings ?? 0,
-    dropped: s?.counts.dropped ?? 0,
-    selected: s ? [...s.selected] : [],
-    autoStopMinutes: s?.autoStopMinutes ?? null
+    elapsedMs: s?.elapsedMs ?? 0,
+    events: s?.events ?? 0,
+    total: s?.total ?? 0,
+    errors: s?.errors ?? 0,
+    warnings: s?.warnings ?? 0,
+    dropped: s?.dropped ?? 0,
+    selected: s?.selected ?? [],
+    autoStopMinutes: s?.autoStopMinutes ?? null,
+    canStart: canStart(),
+    recordings: sessions.map(summaryOf)
   };
 }

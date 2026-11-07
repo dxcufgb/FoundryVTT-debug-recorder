@@ -34,7 +34,7 @@
       "Errors": "Errors",
       "Warnings": "Warnings",
       "Dropped": "Dropped",
-      "AutoStop": "A recording stops by itself after {minutes} minutes. Only this GM client is recorded in this version.",
+      "AutoStop": "A recording stops by itself after {minutes} minutes. Starting again adds a new recording to the list. Only this GM client is recorded in this version.",
       "Report": "What happened",
       "ReportHint": "Optional. Saved in the file. Names you type here are removed as well.",
       "Steps": "Steps to reproduce",
@@ -48,34 +48,49 @@
       "PreviewTruncated": "The first {shown} characters of {size}. The export has everything.",
       "Export": "Export file",
       "Zip": ".zip",
-      "ZipHint": "Export as a .zip (smaller to upload). Files over {size} are always zipped.",
+      "ZipHint": "Export a single recording as a .zip (smaller to upload). Files over {size}, and two or more recordings, are always zipped.",
       "CopySummary": "Copy issue summary",
       "CopyByHand": "The browser didn't allow copying. Select the text below and copy it (Ctrl+C).",
-      "Clear": "Clear"
+      "Recordings": "Recordings",
+      "RecordingsHint": "One recording per bug. Give each a name, then tick the ones to download or delete. Shift-click ticks every recording between the one you clicked last and this one. Two or more download as one .zip.",
+      "NoRecordings": "No recordings yet. Start one for each bug you want to report.",
+      "DefaultLabel": "Bug {n}",
+      "Pick": "Select this recording",
+      "LabelHint": "Name this bug. The name is used for the file name and saved in the file; names of characters, scenes and so on are removed from it as well.",
+      "View": "Show this recording's counters, report fields and preview",
+      "EventsShort": "events",
+      "ErrorsShort": "errors",
+      "DeleteOne": "Delete this recording",
+      "Download": "Download selected",
+      "DownloadHint": "Downloads the ticked recordings. Two or more always download as one .zip with a file per recording.",
+      "DeletePicked": "Delete selected"
     },
     "Indicator": {
       "Label": "Debug recording",
       "Tooltip": "The GM is recording debug data for a bug report. Names, chat and journal text are not recorded."
     },
     "Confirm": {
-      "ReplaceTitle": "Start a new recording?",
-      "ReplaceBody": "The last recording hasn't been cleared. Starting a new one replaces it. Export it first if you still need it.",
-      "ClearTitle": "Clear the recording?",
-      "ClearBody": "Everything recorded so far is deleted. Export it first if you still need it."
+      "DeleteOneTitle": "Delete this recording?",
+      "DeleteTitle": "Delete {count} recordings?",
+      "DeleteBody": "These recordings are deleted. Download them first if you still need them."
     },
     "Notify": {
       "Started": "Debug Recorder: recording. It stops by itself after {minutes} minutes.",
-      "Stopped": "Debug Recorder: recording stopped. Export the file to attach it to the bug report.",
+      "Stopped": "Debug Recorder: recording stopped. Name it in the list, then download it to attach it to the bug report.",
       "AutoStopped": "Debug Recorder: recording stopped by itself after {minutes} minutes.",
       "LostOnReload": "Debug Recorder: the page was reloaded during a recording, so that recording is lost.",
       "Exported": "Debug Recorder: saved {file} ({size}).",
       "NoZip": "Debug Recorder: this browser can't make .zip files, so the plain JSON file was saved.",
       "TooBig": "Debug Recorder: the file would be {size}, more than {max}. Record a shorter session or fewer modules.",
       "Copied": "Debug Recorder: issue summary copied.",
-      "Cleared": "Debug Recorder: recording cleared.",
       "NothingSelected": "Debug Recorder: tick at least one module to record.",
       "GMOnly": "Debug Recorder: only a GM can record.",
-      "Failed": "Debug Recorder: something went wrong. See the console (F12) for details."
+      "Failed": "Debug Recorder: something went wrong. See the console (F12) for details.",
+      "ExportedMany": "Debug Recorder: saved {file} with {count} recordings ({size}).",
+      "NoZipMany": "Debug Recorder: this browser can't make .zip files. Download the recordings one at a time.",
+      "NothingPicked": "Debug Recorder: tick at least one recording to download.",
+      "TooMany": "Debug Recorder: the list holds at most {max} recordings. Delete some to start another.",
+      "Deleted": "Debug Recorder: {count} recording(s) deleted."
     }
   }
 }

@@ -10,6 +10,8 @@ export const TEMPLATE_PATH = `modules/${MODULE_ID}/templates`;
 export const FORMAT = "dxcufgbs-debug-recorder";
 export const SCHEMA_VERSION = 1;
 
+/** Most recordings kept in the list at once (each holds up to MAX_EVENTS events); delete some to start more. */
+export const MAX_RECORDINGS = 20;
 /** Most events kept in one recording; later ones are only counted (`counts.dropped`). */
 export const MAX_EVENTS = 10000;
 /** Exports bigger than this are refused (GitHub issue attachments). */
@@ -89,6 +91,21 @@ export function formatDuration(ms) {
   const m = Math.floor((total % 3600) / 60);
   const s = String(total % 60).padStart(2, "0");
   return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
+/**
+ * A file-name part from an (already scrubbed) label: lower case ASCII letters, digits and dashes, at most 40
+ * characters; "" when nothing is left.
+ */
+export function slugify(label) {
+  return String(label ?? "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/, "");
 }
 
 /** UTC timestamp for file names: 2026-11-05T21-04-33Z. */
