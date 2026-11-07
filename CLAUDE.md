@@ -39,8 +39,9 @@ GitHub issue. System-agnostic. No build step and no npm dependencies.
   or over `AUTO_ZIP_BYTES` (5 MB), 20 MB limit on the final file, `dxcufgbs-debug-<UTC>.json|.zip`), `issueSummary`
   (async: versions, commits and the top of the digest), `exportRecordings` (one → `exportFile`; two or more → always one
   .zip with a JSON file per recording, named `dxcufgbs-debug-[<label slug>-]<start UTC>.json`).
-- `scripts/zip.js` – a zip writer (`zipFiles` for several files, `zipOneFile`) (`CompressionStream("deflate-raw")`, CRC-32, no dependencies; `null` when
-  the browser can't, so the export falls back to JSON).
+- `scripts/zip.js` – a zip writer (`zipFiles` for several files, `zipOneFile`; `CompressionStream("deflate-raw")`, CRC-32,
+  no dependencies; `null` when the browser can't, so a single export falls back to JSON and a multi-recording export is
+  refused).
 - `scripts/indicator.js` – the "Debug recording" badge on every client, driven by the `status` setting.
 - `scripts/apps/recorder-app.js` + `templates/recorder.hbs` – `RecorderApp` (HandlebarsApplicationMixin(ApplicationV2)),
   `OpenRecorderMenu` (the settings menu entry). Timer and counters update in place every second so typing in the

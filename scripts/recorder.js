@@ -357,6 +357,13 @@ export function setReport(id, field, value) {
   return true;
 }
 
+/** The label of recording `id`, scrubbed by that recording's own Redactor ("" when unknown or empty). */
+export function scrubbedLabel(id, { maxLength = 120 } = {}) {
+  const s = find(id);
+  const label = String(s?.label ?? "").trim();
+  return s && label ? s.redactor.scrubString(label, { maxLength }) : "";
+}
+
 /** The label, number and report of a recording (copies), or null. */
 export function getRecording(id) {
   const s = find(id);

@@ -138,7 +138,7 @@ export async function buildFile(report = {}, selected = [], { id = null } = {}) 
   const s = await recorder.prepareExport(selected, { id });
   const r = s.redactor;
   report = report ?? s.report ?? {};
-  const label = s.adHoc ? "" : r.scrubString(String(s.label ?? "").trim(), { maxLength: 120 });
+  const label = s.adHoc ? "" : recorder.scrubbedLabel(s.id);
   const end = s.recording ? Date.now() : (s.stoppedAt ?? Date.now());
   const file = {
     format: FORMAT,
@@ -309,8 +309,9 @@ export async function issueSummary(selected = [], { id = null } = {}) {
     `**Recorder:** ${MODULE_ID} ${recorderVersion()}`,
     "**Modules:**"
   ];
-  const label = id ? String(recorder.getRecording(id)?.label ?? "").trim() : "";
-  if (label) lines.unshift(`**Recording:** ${r.scrubString(label, { maxLength: 120 }).replaceAll("`", "'")}`);
+  // The recording's own Redactor: it also knows names learnt during the recording that the world no longer has.
+  const label = id ? recorder.scrubbedLabel(id) : "";
+  if (label) lines.unshift(`**Recording:** ${label.replaceAll("`", "'")}`);
   if (!selected.length) lines.push("- (no module ticked)");
   for (const id of selected) {
     const mod = game.modules.get(id);

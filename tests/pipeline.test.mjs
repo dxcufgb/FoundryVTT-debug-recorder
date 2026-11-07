@@ -438,7 +438,10 @@ test("several recordings: names, own reports, delete, and two or more always dow
   const first = recorder.getState().recordings.at(-1);
   assert.equal(first.recording, false);
   // The GM names the bugs; names of the world's documents typed into a label must not reach the file or file name.
-  assert.equal(recorder.rename(first.id, `${SEED.actor} sheet breaks in ${SEED.scene} for ${SEED.userPlayer}`), true);
+  // SEED.newActor was learnt from a create hook during the first recording and is not in game.actors: only that
+  // recording's own Redactor knows it.
+  assert.ok(!game.actors.contents.some(a => a.name === SEED.newActor));
+  assert.equal(recorder.rename(first.id, `${SEED.actor} sheet breaks in ${SEED.scene} for ${SEED.userPlayer} after ${SEED.newActor}`), true);
 
   assert.equal(await recorder.start([FAKE], { autoStopMinutes: 30 }), true);
   const secondId = recorder.getState().activeId;
@@ -489,8 +492,10 @@ test("several recordings: names, own reports, delete, and two or more always dow
 
   const summary = await exporter.issueSummary([FAKE], { id: secondId });
   assert.ok(summary.startsWith("**Recording:** Second bug"));
-  const allSeeds = [...Object.values(SEED), ...Object.values(IDS), ORIGIN, ":30000", "Elira", "Moonwhisper", "Drakhålan", "drakhalan", "Musse"];
-  const texts = [saved.filename, ...entries.map(e => e.name), ...entries.map(e => e.data), single.filename, JSON.stringify(singleFile), summary];
+  const firstSummary = await exporter.issueSummary([FAKE], { id: first.id });
+  assert.ok(firstSummary.startsWith("**Recording:** ‹name› sheet breaks"));
+  const allSeeds = [...Object.values(SEED), ...Object.values(IDS), ORIGIN, ":30000", "Elira", "Moonwhisper", "Drakhålan", "drakhalan", "Musse", "Zorbath"];
+  const texts = [saved.filename, ...entries.map(e => e.name), ...entries.map(e => e.data), single.filename, JSON.stringify(singleFile), summary, firstSummary];
   for (const text of texts) {
     const lower = text.toLowerCase();
     for (const seed of allSeeds) assert.ok(!lower.includes(String(seed).toLowerCase()), `seeded value leaked via a label or report: ${seed}`);
