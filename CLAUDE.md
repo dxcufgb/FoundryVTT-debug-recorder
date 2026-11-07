@@ -80,7 +80,8 @@ GitHub issue. System-agnostic. No build step and no npm dependencies.
 - **Keys**: the privacy layer drops keys named `name`, `title`, `text`, `img`, … anywhere, so the recorder's own data
   never uses them (browser `family`, API `member`).
 - **Labels and reports** are the GM's own text, kept as typed for the window and scrubbed by the recording's Redactor
-  whenever they are written to a file, a file name (`slugify` after scrubbing) or the issue summary.
+  whenever they are written to a file, a file name (`slugify` after scrubbing) or the issue summary. That Redactor first
+  re-learns the current world (`refreshNames`, additive), since a stopped recording no longer watches create hooks.
 - **GM only**: only GMs start / stop / export; players only see the indicator. Player-client collection and surviving
   a reload come in v0.2.
 - **Escaping**: templates use `{{ }}` only; any HTML built in JS uses `escapeHTML`.

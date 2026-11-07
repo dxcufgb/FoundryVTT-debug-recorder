@@ -357,11 +357,27 @@ export function setReport(id, field, value) {
   return true;
 }
 
+/**
+ * Teaches a recording's Redactor the world's names as they are now, on top of what it learnt while recording (a
+ * stopped recording no longer watches create / update hooks, but its label and report can still be edited). Called
+ * before anything of the recording is scrubbed for a file, a file name or the issue summary.
+ */
+function refreshNames(s) {
+  if (!s?.redactor) return;
+  try {
+    s.redactor.absorbWorld(game);
+  } catch (err) {
+    console.error(`${MODULE_ID} | refresh names`, err);
+  }
+}
+
 /** The label of recording `id`, scrubbed by that recording's own Redactor ("" when unknown or empty). */
 export function scrubbedLabel(id, { maxLength = 120 } = {}) {
   const s = find(id);
   const label = String(s?.label ?? "").trim();
-  return s && label ? s.redactor.scrubString(label, { maxLength }) : "";
+  if (!s || !label) return "";
+  refreshNames(s);
+  return s.redactor.scrubString(label, { maxLength });
 }
 
 /** The label, number and report of a recording (copies), or null. */
@@ -378,6 +394,8 @@ export function getRecording(id) {
 export async function prepareExport(selectedIds = [], { id = null } = {}) {
   let s = id ? find(id) : latest();
   if (id && !s) throw new Error(`unknown recording ${id}`);
+  // Names created since Stop: the label and report (scrubbed in buildFile) may mention them.
+  if (s) refreshNames(s);
   if (!s) {
     s = newSession(selectedIds);
     s.environment = s.redactor.redact(environmentHeader([...s.selected]), { maxDepth: 8 });

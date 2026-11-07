@@ -458,8 +458,11 @@ test("several recordings: names, own reports, delete, and two or more always dow
   // A running recording can't be deleted.
   assert.equal(recorder.remove([secondId]), 0);
   assert.equal(await recorder.stop(), true);
-  recorder.rename(secondId, `Second bug ${SEED.worldTitle} ${ORIGIN}`);
-  recorder.setReport(secondId, "steps", `Open ${SEED.journal} and read "${SEED.chat}"`);
+  // An actor created after Stop (no create hook is watched any more), then named in the label and the report.
+  const lateActor = { id: "LateAct000000001", name: "Quillon Afterstop", items: [], effects: [] };
+  game.actors.set(lateActor.id, lateActor);
+  recorder.rename(secondId, `Second bug ${SEED.worldTitle} ${ORIGIN} ${lateActor.name}`);
+  recorder.setReport(secondId, "steps", `Open ${SEED.journal} and read "${SEED.chat}" with ${lateActor.name}`);
 
   // Each recording keeps its own events.
   assert.ok(recorder.storedEvents(secondId).some(e => String(e.message).includes("only in the second recording")));
@@ -500,7 +503,7 @@ test("several recordings: names, own reports, delete, and two or more always dow
   assert.ok(summary.startsWith("**Recording:** Second bug"));
   const firstSummary = await exporter.issueSummary([FAKE], { id: first.id });
   assert.ok(firstSummary.startsWith("**Recording:** ‹name› sheet breaks"));
-  const allSeeds = [...Object.values(SEED), ...Object.values(IDS), ORIGIN, ":30000", "Elira", "Moonwhisper", "Drakhålan", "drakhalan", "Musse", "Zorbath"];
+  const allSeeds = [...Object.values(SEED), ...Object.values(IDS), ORIGIN, ":30000", "Elira", "Moonwhisper", "Drakhålan", "drakhalan", "Musse", "Zorbath", "Quillon", "Afterstop"];
   const texts = [saved.filename, ...entries.map(e => e.name), ...entries.map(e => e.data), single.filename, JSON.stringify(singleFile), summary, firstSummary];
   for (const text of texts) {
     const lower = text.toLowerCase();
