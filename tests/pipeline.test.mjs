@@ -496,6 +496,7 @@ test("several recordings: names, own reports, delete, and two or more always dow
   assert.equal(firstFile.recording.number, 1);
   assert.ok(secondFile.events.some(e => String(e.message).includes("only in the second recording")));
   assert.ok(!firstFile.events.some(e => String(e.message).includes("only in the second recording")));
+  assert.ok(secondFile.report.steps.startsWith("Open "), "the zip keeps each recording's own report");
   assert.equal(firstFile.report.steps, "", "each recording has its own report");
   assert.ok(firstFile.summary.includes("- Recording: "));
 
