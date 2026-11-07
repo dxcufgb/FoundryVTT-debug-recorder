@@ -6,7 +6,7 @@ author "Dxcufgb", so Dice Trails / Lively Tokens with other ids count too) into 
 GitHub issue. System-agnostic. No build step and no npm dependencies.
 
 ## Layout
-- `scripts/main.js` – entry: settings (`autoStopMinutes`; hidden world `selection` {saved, ids} and `status`
+- `scripts/main.js` – entry: settings (`autoStopMinutes`; client `openOnLoad`, which opens the window for a GM on `ready`; hidden world `selection` {saved, ids} and `status`
   {recording, startedAt, by}), the GM-only settings menu and keybinding, the public API (documented in its header
   comment), the `dxcufgbs-debug-recorder.ready` hook (fired on `setup`; `api` is on the module from `init`).
 - `scripts/privacy.js` – the privacy layer, pure logic without Foundry globals (unit tested in `tests/`). `Redactor`:

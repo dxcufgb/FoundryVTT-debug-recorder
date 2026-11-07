@@ -9,6 +9,10 @@
       "AutoStop": {
         "Name": "Stop recording after (minutes)",
         "Hint": "A recording stops by itself after this many minutes, so it can't run on by accident."
+      },
+      "OpenOnLoad": {
+        "Name": "Open the recorder when the world loads",
+        "Hint": "Opens the Debug Recorder window as soon as the world has loaded (GMs only, this browser only), so starting a recording is one click away."
       }
     },
     "Keybindings": {

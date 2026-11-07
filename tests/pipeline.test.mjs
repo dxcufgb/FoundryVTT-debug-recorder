@@ -119,6 +119,8 @@ function fakeElement() {
 }
 
 let saved = null;
+/** Windows rendered (class names): the recorder opens on "ready" for a GM. */
+const opened = [];
 const SHA_FAKE = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1234";
 const SHA_LATE = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb5678";
 const GIT_FILES = {
@@ -136,7 +138,7 @@ function install() {
   g.ui = { notifications };
   g.foundry = {
     applications: {
-      api: { ApplicationV2: class {}, HandlebarsApplicationMixin: Base => class extends Base {}, DialogV2: { confirm: async () => true } },
+      api: { ApplicationV2: class { render() { opened.push(this.constructor.name); return this; } }, HandlebarsApplicationMixin: Base => class extends Base {}, DialogV2: { confirm: async () => true } },
       instances: new Map()
     },
     utils: { saveDataToFile: (data, type, filename) => { saved = { data, type, filename }; } }
@@ -236,6 +238,10 @@ test("API: locked names on the module and in the ready hook; nothing stored befo
   assert.doesNotThrow(() => api.breadcrumb(FAKE, "early.crumb", { x: 1 }));
   assert.doesNotThrow(() => api.register(null));
   assert.equal(recorder.getState().hasData, false);
+  // openOnLoad (client, default on): the GM gets the recorder window as soon as the world is ready.
+  assert.equal(game.settings.get("dxcufgbs-debug-recorder", "openOnLoad"), true);
+  assert.equal(game.settings.settings.get("dxcufgbs-debug-recorder.openOnLoad").scope, "client");
+  assert.ok(opened.includes("RecorderApp"), "the recorder window opens on ready for a GM");
 });
 
 test("full pipeline: record, export, and no seeded value anywhere in the file", async () => {

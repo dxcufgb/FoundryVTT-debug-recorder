@@ -7,6 +7,7 @@
 - A checkbox on every recording, an **All** box, and Shift-click to tick or untick every recording between the one you clicked last and this one (like selecting e-mails in Gmail). A new recording is ticked when it starts.
 - **Download selected**: one recording downloads as before (JSON, or .zip when asked or over 5 MB); two or more always download as one .zip with a JSON file per recording.
 - **Delete selected** and a delete button per recording replace **Clear**. The running recording can't be deleted.
+- The recorder window opens for a GM as soon as the world has loaded. Turn it off per browser with the new setting **Open the recorder when the world loads**.
 
 ## 0.1.0
 
