@@ -1,6 +1,6 @@
 /*
- * A minimal zip writer for one file (no dependencies): deflate with the browser's CompressionStream("deflate-raw"),
- * CRC-32, one local file header, one central directory entry, end of central directory. No Foundry globals (unit
+ * A minimal zip writer (no dependencies) for one or more files: deflate with the browser's CompressionStream("deflate-raw"),
+ * CRC-32, a local file header per file, the central directory, end of central directory. No Foundry globals (unit
  * tested in Node and checked with the unzip CLI).
  */
 
@@ -49,53 +49,73 @@ function dosDateTime(date) {
  * when CompressionStream is missing (the caller falls back to the plain file).
  */
 export async function zipOneFile(name, data, date = new Date()) {
-  if (!canZip()) return null;
-  const raw = typeof data === "string" ? new TextEncoder().encode(data) : data;
-  const nameBytes = new TextEncoder().encode(name);
-  const deflated = await deflateRaw(raw);
-  const crc = crc32(raw);
+  return zipFiles([{ name, data }], date);
+}
+
+/**
+ * A zip archive holding several files: `entries` = [{name, data}] (data a string, written as UTF-8, or bytes), in
+ * that order. Names must be unique (the caller makes them so). Returns the archive bytes, or null when
+ * CompressionStream is missing.
+ */
+export async function zipFiles(entries, date = new Date()) {
+  if (!canZip() || !entries?.length || entries.length > 0xffff) return null;
   const { time, date: day } = dosDateTime(date);
   const FLAG_UTF8 = 0x0800;
+  const encoder = new TextEncoder();
+  const locals = [];
+  const centrals = [];
+  let offset = 0;
+  for (const entry of entries) {
+    const raw = typeof entry.data === "string" ? encoder.encode(entry.data) : entry.data;
+    const nameBytes = encoder.encode(entry.name);
+    const deflated = await deflateRaw(raw);
+    const crc = crc32(raw);
 
-  const local = new DataView(new ArrayBuffer(30));
-  local.setUint32(0, 0x04034b50, true);
-  local.setUint16(4, 20, true);              // version needed
-  local.setUint16(6, FLAG_UTF8, true);
-  local.setUint16(8, 8, true);               // deflate
-  local.setUint16(10, time, true);
-  local.setUint16(12, day, true);
-  local.setUint32(14, crc, true);
-  local.setUint32(18, deflated.length, true);
-  local.setUint32(22, raw.length, true);
-  local.setUint16(26, nameBytes.length, true);
-  local.setUint16(28, 0, true);              // extra length
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true);              // version needed
+    local.setUint16(6, FLAG_UTF8, true);
+    local.setUint16(8, 8, true);               // deflate
+    local.setUint16(10, time, true);
+    local.setUint16(12, day, true);
+    local.setUint32(14, crc, true);
+    local.setUint32(18, deflated.length, true);
+    local.setUint32(22, raw.length, true);
+    local.setUint16(26, nameBytes.length, true);
+    local.setUint16(28, 0, true);              // extra length
 
-  const central = new DataView(new ArrayBuffer(46));
-  central.setUint32(0, 0x02014b50, true);
-  central.setUint16(4, 20, true);            // version made by
-  central.setUint16(6, 20, true);            // version needed
-  central.setUint16(8, FLAG_UTF8, true);
-  central.setUint16(10, 8, true);
-  central.setUint16(12, time, true);
-  central.setUint16(14, day, true);
-  central.setUint32(16, crc, true);
-  central.setUint32(20, deflated.length, true);
-  central.setUint32(24, raw.length, true);
-  central.setUint16(28, nameBytes.length, true);
-  // extra, comment, disk, internal and external attributes, local header offset: all 0
-  const centralOffset = 30 + nameBytes.length + deflated.length;
-  const centralSize = 46 + nameBytes.length;
+    const central = new DataView(new ArrayBuffer(46));
+    central.setUint32(0, 0x02014b50, true);
+    central.setUint16(4, 20, true);            // version made by
+    central.setUint16(6, 20, true);            // version needed
+    central.setUint16(8, FLAG_UTF8, true);
+    central.setUint16(10, 8, true);
+    central.setUint16(12, time, true);
+    central.setUint16(14, day, true);
+    central.setUint32(16, crc, true);
+    central.setUint32(20, deflated.length, true);
+    central.setUint32(24, raw.length, true);
+    central.setUint16(28, nameBytes.length, true);
+    // extra, comment, disk, internal and external attributes: all 0
+    central.setUint32(42, offset, true);       // local header offset
+
+    locals.push(new Uint8Array(local.buffer), nameBytes, deflated);
+    centrals.push(new Uint8Array(central.buffer), nameBytes);
+    offset += 30 + nameBytes.length + deflated.length;
+  }
+  const centralOffset = offset;
+  const centralSize = centrals.reduce((n, part) => n + part.length, 0);
 
   const end = new DataView(new ArrayBuffer(22));
   end.setUint32(0, 0x06054b50, true);
-  end.setUint16(8, 1, true);                 // entries on this disk
-  end.setUint16(10, 1, true);                // entries in total
+  end.setUint16(8, entries.length, true);    // entries on this disk
+  end.setUint16(10, entries.length, true);   // entries in total
   end.setUint32(12, centralSize, true);
   end.setUint32(16, centralOffset, true);
 
   const out = new Uint8Array(centralOffset + centralSize + 22);
   let at = 0;
-  for (const part of [new Uint8Array(local.buffer), nameBytes, deflated, new Uint8Array(central.buffer), nameBytes, new Uint8Array(end.buffer)]) {
+  for (const part of [...locals, ...centrals, new Uint8Array(end.buffer)]) {
     out.set(part, at);
     at += part.length;
   }

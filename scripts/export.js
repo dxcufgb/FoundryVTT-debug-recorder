@@ -1,13 +1,13 @@
-import { MODULE_ID, FORMAT, SCHEMA_VERSION, MAX_EXPORT_BYTES, AUTO_ZIP_BYTES, recorderVersion, fileStamp, formatBytes, formatDuration, t } from "./util.js";
+import { MODULE_ID, FORMAT, SCHEMA_VERSION, MAX_EXPORT_BYTES, AUTO_ZIP_BYTES, recorderVersion, fileStamp, formatBytes, formatDuration, slugify, t } from "./util.js";
 import { Redactor } from "./privacy.js";
 import { browserInfo } from "./environment.js";
 import { codeVersions, modulesInEvents, frameString } from "./versions.js";
-import { zipOneFile } from "./zip.js";
+import { zipOneFile, zipFiles } from "./zip.js";
 import * as recorder from "./recorder.js";
 
 /*
- * The exported file (one self-describing JSON file for a GitHub issue, optionally zipped) and the "Copy issue
- * summary" text. Every part was redacted when it was stored; the whole file goes through the session's Redactor once
+ * The exported file (one self-describing JSON file per recording for a GitHub issue, optionally zipped; two or more
+ * recordings always download as one .zip) and the "Copy issue summary" text. Every part was redacted when it was stored; the whole file goes through the session's Redactor once
  * more here. Added after that pass, from already redacted data or validated public package metadata only: `digest`
  * (right after the header), `versions`, the commits in stack frames, `summary`, and the redaction report (last).
  */
@@ -96,6 +96,7 @@ export function summaryMarkdown(file) {
   const lines = [];
   const b = env.browser ?? {};
   lines.push("## Debug recording", "");
+  if (file.recording?.label) lines.push(`- Recording: ${file.recording.label}`);
   lines.push(`- Recorder: ${file.recorderVersion}`);
   if (file.recording?.startedAt) lines.push(`- Started: ${file.recording.startedAt} (UTC), duration ${formatDuration(file.recording.durationMs)}${file.recording.autoStopped ? " (stopped automatically)" : ""}`);
   lines.push(`- Foundry VTT: ${env.foundry?.version ?? "?"} (generation ${env.foundry?.generation ?? "?"}, build ${env.foundry?.build ?? "?"})`);
@@ -129,10 +130,15 @@ export function summaryMarkdown(file) {
   return lines.join("\n");
 }
 
-/** Builds the export file (an object). `report` = {steps, expected, actual}; `selected` is used without a recording. */
-export async function buildFile(report = {}, selected = []) {
-  const s = await recorder.prepareExport(selected);
+/**
+ * Builds the export file (an object) of recording `id` (default: the running / newest one). `report` =
+ * {steps, expected, actual}, or null for the recording's own report fields; `selected` is used without a recording.
+ */
+export async function buildFile(report = {}, selected = [], { id = null } = {}) {
+  const s = await recorder.prepareExport(selected, { id });
   const r = s.redactor;
+  report = report ?? s.report ?? {};
+  const label = s.adHoc ? "" : recorder.scrubbedLabel(s.id);
   const end = s.recording ? Date.now() : (s.stoppedAt ?? Date.now());
   const file = {
     format: FORMAT,
@@ -141,6 +147,8 @@ export async function buildFile(report = {}, selected = []) {
     createdAt: new Date().toISOString(),
     recording: {
       recorded: !s.adHoc,
+      number: s.adHoc ? null : s.number,
+      label: label || null,
       startedAt: s.adHoc ? null : new Date(s.startedAt).toISOString(),
       durationMs: s.adHoc ? 0 : end - s.startedAt,
       stillRecording: !!s.recording,
@@ -186,8 +194,24 @@ export async function buildFile(report = {}, selected = []) {
   return out;
 }
 
-export function fileName(date = new Date(), ext = "json") {
-  return `dxcufgbs-debug-${fileStamp(date)}.${ext}`;
+/** `dxcufgbs-debug-[<label>-]<UTC>.<ext>`; the label must already be scrubbed (it is, when taken from a file). */
+export function fileName(date = new Date(), ext = "json", label = "") {
+  const slug = slugify(label);
+  return `dxcufgbs-debug-${slug ? `${slug}-` : ""}${fileStamp(date)}.${ext}`;
+}
+
+/** `name` made unique among `taken` (adds -2, -3… before the extension). */
+function uniqueName(name, taken) {
+  let candidate = name;
+  for (let n = 2; taken.has(candidate); n++) candidate = name.replace(/(\.[a-z]+)$/, `-${n}$1`);
+  taken.add(candidate);
+  return candidate;
+}
+
+function tooBig(bytes) {
+  if (bytes <= MAX_EXPORT_BYTES) return false;
+  ui.notifications.error(t("Notify.TooBig", { size: formatBytes(bytes), max: formatBytes(MAX_EXPORT_BYTES) }));
+  return true;
 }
 
 function download(data, type, filename) {
@@ -202,16 +226,18 @@ function download(data, type, filename) {
 }
 
 /**
- * GM: builds the file and downloads it, zipped when asked or when the JSON is over AUTO_ZIP_BYTES (plain JSON when
- * the browser can't zip). Refuses a final file over MAX_EXPORT_BYTES.
+ * GM: builds the file of recording `id` (default: the running / newest one; `report` null = its own report) and
+ * downloads it, zipped when asked or when the JSON is over AUTO_ZIP_BYTES (plain JSON when the browser can't zip).
+ * Refuses a final file over MAX_EXPORT_BYTES.
  * @returns {{ok: boolean, json: string, filename: string, bytes: number, zipped: boolean, data: string|Uint8Array}}
  */
-export async function exportFile(report, selected, { zip = false } = {}) {
-  const file = await buildFile(report, selected);
+export async function exportFile(report, selected, { zip = false, id = null } = {}) {
+  const file = await buildFile(report, selected, { id });
   const json = JSON.stringify(file, null, 2);
   const jsonBytes = new TextEncoder().encode(json);
   const date = new Date();
-  let filename = fileName(date);
+  const label = file.recording?.label ?? "";
+  let filename = fileName(date, "json", label);
   let data = json;
   let type = "application/json";
   let zipped = false;
@@ -220,29 +246,59 @@ export async function exportFile(report, selected, { zip = false } = {}) {
     if (archive) {
       data = archive;
       type = "application/zip";
-      filename = fileName(date, "zip");
+      filename = fileName(date, "zip", label);
       zipped = true;
     } else if (zip) {
       ui.notifications.warn(t("Notify.NoZip"));
     }
   }
   const bytes = zipped ? data.length : jsonBytes.length;
-  if (bytes > MAX_EXPORT_BYTES) {
-    ui.notifications.error(t("Notify.TooBig", { size: formatBytes(bytes), max: formatBytes(MAX_EXPORT_BYTES) }));
-    return { ok: false, json, filename, bytes, zipped, data };
-  }
+  if (tooBig(bytes)) return { ok: false, json, filename, bytes, zipped, data };
   download(data, type, filename);
   ui.notifications.info(t("Notify.Exported", { file: filename, size: formatBytes(bytes) }));
   return { ok: true, json, filename, bytes, zipped, data };
 }
 
 /**
- * "Copy issue summary": Foundry, system and browser versions, the selected modules' exact code (version, tag,
- * commit) and the top of the error digest of the current / last recording, as Markdown.
+ * GM: downloads the recordings `ids`, each with its own label and report fields. One recording is exported like
+ * exportFile; two or more always download as one .zip holding a JSON file per recording (named after its label and
+ * start time). Refuses when the browser can't zip or the archive is over MAX_EXPORT_BYTES.
+ * @returns {{ok: boolean, filename: string|null, bytes: number, zipped: boolean, files: string[], data?: Uint8Array}}
  */
-export async function issueSummary(selected = []) {
+export async function exportRecordings(ids = [], { zip = false } = {}) {
+  if (!ids.length) return { ok: false, filename: null, bytes: 0, zipped: false, files: [] };
+  if (ids.length === 1) {
+    const one = await exportFile(null, [], { zip, id: ids[0] });
+    return { ok: one.ok, filename: one.filename, bytes: one.bytes, zipped: one.zipped, files: [one.filename], json: one.json, data: one.data };
+  }
+  const date = new Date();
+  const taken = new Set();
+  const entries = [];
+  for (const id of ids) {
+    const file = await buildFile(null, [], { id });
+    const started = file.recording?.startedAt ? new Date(file.recording.startedAt) : date;
+    entries.push({ name: uniqueName(fileName(started, "json", file.recording?.label ?? ""), taken), data: JSON.stringify(file, null, 2) });
+  }
+  const filename = `dxcufgbs-debug-${entries.length}-recordings-${fileStamp(date)}.zip`;
+  const files = entries.map(e => e.name);
+  const archive = await zipFiles(entries, date);
+  if (!archive) {
+    ui.notifications.error(t("Notify.NoZipMany"));
+    return { ok: false, filename, bytes: 0, zipped: false, files };
+  }
+  if (tooBig(archive.length)) return { ok: false, filename, bytes: archive.length, zipped: true, files, data: archive };
+  download(archive, "application/zip", filename);
+  ui.notifications.info(t("Notify.ExportedMany", { file: filename, count: entries.length, size: formatBytes(archive.length) }));
+  return { ok: true, filename, bytes: archive.length, zipped: true, files, data: archive };
+}
+
+/**
+ * "Copy issue summary": Foundry, system and browser versions, the selected modules' exact code (version, tag,
+ * commit) and the top of the error digest of recording `id` (default: the running / newest one), as Markdown.
+ */
+export async function issueSummary(selected = [], { id = null } = {}) {
   const b = browserInfo();
-  const events = recorder.storedEvents();
+  const events = recorder.storedEvents(id);
   // Module titles are not private, but they go through a Redactor anyway; events were redacted when stored.
   const r = Redactor.fromWorld(game, globalThis.location);
   const versions = scrubVersions(await codeVersions([...selected, ...modulesInEvents(events)]), r);
@@ -253,6 +309,9 @@ export async function issueSummary(selected = []) {
     `**Recorder:** ${MODULE_ID} ${recorderVersion()}`,
     "**Modules:**"
   ];
+  // The recording's own Redactor: it also knows names learnt during the recording that the world no longer has.
+  const label = id ? recorder.scrubbedLabel(id) : "";
+  if (label) lines.unshift(`**Recording:** ${label.replaceAll("`", "'")}`);
   if (!selected.length) lines.push("- (no module ticked)");
   for (const id of selected) {
     const mod = game.modules.get(id);

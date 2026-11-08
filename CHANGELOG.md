@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Several recordings, one per bug. Starting again adds a new recording to a list instead of replacing the last one (up to 20; delete some to start more). Each recording has its own name, its own "What happened" fields and its own preview; click a recording's times to view it.
+- Name each recording in the list. The name is saved in the file (`recording.label`, with names of the world's documents removed like any other text) and used for the file name, e.g. `dxcufgbs-debug-sheet-crashes-<UTC time>.json`.
+- A checkbox on every recording, an **All** box, and Shift-click to tick or untick every recording between the one you clicked last and this one (like selecting e-mails in Gmail). A new recording is ticked when it starts.
+- **Download selected**: one recording downloads as before (JSON, or .zip when asked or over 5 MB); two or more always download as one .zip with a JSON file per recording.
+- **Delete selected** and a delete button per recording replace **Clear**. The running recording can't be deleted.
+- The recorder window opens for a GM as soon as the world has loaded. Turn it off per browser with the new setting **Open the recorder when the world loads**.
+
 ## 0.1.0
 
 - First version.

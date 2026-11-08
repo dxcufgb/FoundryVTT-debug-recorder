@@ -32,13 +32,14 @@
   </section>
 
   <section class="dxdr-section dxdr-control {{#if recording}}dxdr-on{{/if}}">
-    <button type="button" class="dxdr-record" data-action="toggle">
+    <button type="button" class="dxdr-record" data-action="toggle" {{#unless recording}}{{disabled (not canStart)}}{{/unless}}>
       {{#if recording}}
       <i class="fa-solid fa-stop" inert></i> {{localize "DXDR.App.Stop"}}
       {{else}}
       <i class="fa-solid fa-circle" inert></i> {{localize "DXDR.App.Start"}}
       {{/if}}
     </button>
+    {{#if viewedLabel}}<p class="dxdr-viewed"><i class="fa-solid fa-eye" inert></i> <span data-viewed-label>{{viewedLabel}}</span></p>{{/if}}
     <dl class="dxdr-stats">
       <div><dt>{{localize "DXDR.App.Elapsed"}}</dt><dd data-live="elapsed">{{elapsed}}</dd></div>
       <div><dt>{{localize "DXDR.App.Events"}}</dt><dd data-live="total">{{total}}</dd></div>
@@ -50,7 +51,37 @@
   </section>
 
   <section class="dxdr-section">
-    <h3><i class="fa-solid fa-list-ol" inert></i> {{localize "DXDR.App.Report"}}</h3>
+    <header class="dxdr-section-head">
+      <h3><i class="fa-solid fa-layer-group" inert></i> {{localize "DXDR.App.Recordings"}}</h3>
+      {{#if recordings.length}}
+      <label class="checkbox dxdr-pick-all"><input type="checkbox" data-pick-all {{checked allPicked}}> {{localize "DXDR.App.SelectAll"}}</label>
+      {{/if}}
+    </header>
+    {{#if recordings.length}}
+    <p class="hint">{{localize "DXDR.App.RecordingsHint"}}</p>
+    <ul class="dxdr-recordings">
+      {{#each recordings}}
+      <li class="dxdr-rec {{#if viewing}}dxdr-rec-viewing{{/if}} {{#if recording}}dxdr-rec-live{{/if}}" data-recording="{{id}}">
+        <input type="checkbox" data-pick="{{id}}" {{checked picked}} aria-label="{{localize "DXDR.App.Pick"}}">
+        <input type="text" class="dxdr-rec-label" data-label="{{id}}" value="{{label}}" placeholder="{{placeholder}}" maxlength="120" aria-label="{{localize "DXDR.App.LabelHint"}}" data-tooltip="{{localize "DXDR.App.LabelHint"}}">
+        <button type="button" class="dxdr-rec-info" data-action="view" data-id="{{id}}" data-tooltip="{{localize "DXDR.App.View"}}">
+          {{#if recording}}<i class="fa-solid fa-circle dxdr-rec-dot" inert></i>{{/if}}
+          <span>{{started}}</span>
+          <span data-row-live="elapsed">{{elapsed}}</span>
+          <span><span data-row-live="total">{{total}}</span> {{localize "DXDR.App.EventsShort"}}</span>
+          <span class="dxdr-errors"><span data-row-live="errors">{{errors}}</span> {{localize "DXDR.App.ErrorsShort"}}</span>
+        </button>
+        <button type="button" class="dxdr-icon" data-action="deleteOne" data-id="{{id}}" {{disabled recording}} data-tooltip="{{localize "DXDR.App.DeleteOne"}}" aria-label="{{localize "DXDR.App.DeleteOne"}}"><i class="fa-solid fa-trash" inert></i></button>
+      </li>
+      {{/each}}
+    </ul>
+    {{else}}
+    <p class="dxdr-empty">{{localize "DXDR.App.NoRecordings"}}</p>
+    {{/if}}
+  </section>
+
+  <section class="dxdr-section">
+    <h3><i class="fa-solid fa-list-ol" inert></i> {{localize "DXDR.App.Report"}}{{#if viewedLabel}}: <span data-viewed-label>{{viewedLabel}}</span>{{/if}}</h3>
     <p class="hint">{{localize "DXDR.App.ReportHint"}}</p>
     <label class="dxdr-field">{{localize "DXDR.App.Steps"}}
       <textarea data-report="steps" rows="3">{{report.steps}}</textarea></label>
@@ -79,8 +110,12 @@
   {{#if canZip}}
   <label class="checkbox dxdr-zip" data-tooltip="{{zipHint}}"><input type="checkbox" data-zip {{checked zip}}> {{localize "DXDR.App.Zip"}}</label>
   {{/if}}
+  {{#if hasData}}
+  <button type="button" data-action="exportFile" data-needs-pick {{disabled (not pickedCount)}} data-tooltip="{{localize "DXDR.App.DownloadHint"}}"><i class="fa-solid fa-file-export" inert></i> <span>{{localize "DXDR.App.Download"}} (<span data-picked-count>{{pickedCount}}</span>)</span></button>
+  {{else}}
   <button type="button" data-action="exportFile"><i class="fa-solid fa-file-export" inert></i> {{localize "DXDR.App.Export"}}</button>
+  {{/if}}
   <button type="button" data-action="copySummary"><i class="fa-solid fa-clipboard" inert></i> {{localize "DXDR.App.CopySummary"}}</button>
-  <button type="button" data-action="clear" {{disabled (or recording (not hasData))}}><i class="fa-solid fa-trash" inert></i> {{localize "DXDR.App.Clear"}}</button>
+  <button type="button" data-action="deletePicked" {{disabled (not deletableCount)}}><i class="fa-solid fa-trash" inert></i> <span>{{localize "DXDR.App.DeletePicked"}} (<span data-deletable-count>{{deletableCount}}</span>)</span></button>
 </footer>
 </div>

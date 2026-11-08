@@ -49,6 +49,12 @@ function registerSettings() {
     scope: "world", config: true, type: Number, default: 30,
     range: { min: 5, max: 240, step: 5 }
   });
+  // Opens the recorder window for a GM as soon as the world has loaded (per client, so each GM chooses).
+  game.settings.register(MODULE_ID, "openOnLoad", {
+    name: "DXDR.Settings.OpenOnLoad.Name",
+    hint: "DXDR.Settings.OpenOnLoad.Hint",
+    scope: "client", config: true, type: Boolean, default: true
+  });
   // Which modules are ticked in the recorder window ({saved, ids}). GM only, not in the settings window.
   game.settings.register(MODULE_ID, "selection", {
     scope: "world", config: false, type: Object, default: { saved: false, ids: [] }
@@ -103,6 +109,11 @@ Hooks.once("ready", async () => {
     updateIndicator();
   } catch (err) {
     console.error(`${MODULE_ID} | ready`, err);
+  }
+  try {
+    if (game.user?.isGM && game.settings.get(MODULE_ID, "openOnLoad")) RecorderApp.open();
+  } catch (err) {
+    console.error(`${MODULE_ID} | open on load`, err);
   }
 });
 

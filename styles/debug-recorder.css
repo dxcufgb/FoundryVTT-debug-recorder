@@ -102,6 +102,44 @@
 .dxdr-stats dt { font-size: var(--font-size-11, 11px); color: var(--dxdr-muted); }
 .dxdr-stats dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
 
+.dxdr-viewed { flex-basis: 100%; margin: 0; color: var(--dxdr-muted); font-size: var(--font-size-12, 12px); }
+
+/* ---------- Recordings list ---------- */
+.dxdr-pick-all { display: flex; align-items: center; gap: 0.25rem; margin: 0; font-size: var(--font-size-12, 12px); white-space: nowrap; }
+.dxdr-recordings { list-style: none; margin: 0.25rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.dxdr-rec {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid transparent;
+  border-radius: var(--dxdr-radius);
+}
+.dxdr-rec:hover { background: var(--dxdr-surface-2); }
+.dxdr-rec-viewing { border-color: var(--dxdr-accent); background: var(--dxdr-surface-2); }
+.dxdr-rec-live { border-color: var(--dxdr-rec); }
+.dxdr-rec input[type="checkbox"] { flex: 0 0 auto; margin: 0; }
+.dxdr-rec-label { flex: 1 1 10rem; min-width: 6rem; height: 1.7rem; }
+.dxdr-rec-info {
+  flex: 0 1 auto;
+  width: auto;
+  height: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.1rem 0.45rem;
+  border: none;
+  background: none;
+  color: var(--dxdr-muted);
+  font-size: var(--font-size-11, 11px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  user-select: none;
+}
+.dxdr-rec-info:hover { color: var(--dxdr-text); }
+.dxdr-rec-dot { color: var(--dxdr-rec); animation: dxdr-blink 1.6s ease-in-out infinite; }
+.dxdr-icon { flex: 0 0 auto; width: 1.8rem; height: 1.7rem; padding: 0; }
+
 .dxdr-field { display: flex; flex-direction: column; gap: 2px; margin-top: 0.4rem; font-weight: 600; }
 .dxdr-field textarea { font-weight: normal; resize: vertical; min-height: 2.5rem; }
 
@@ -148,4 +186,4 @@
 .dxdr-indicator-dot { color: var(--dxdr-rec); animation: dxdr-blink 1.6s ease-in-out infinite; }
 .dxdr-indicator-time { font-variant-numeric: tabular-nums; opacity: 0.85; }
 @keyframes dxdr-blink { 50% { opacity: 0.3; } }
-@media (prefers-reduced-motion: reduce) { .dxdr-indicator-dot { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .dxdr-indicator-dot, .dxdr-rec-dot { animation: none; } }

@@ -119,6 +119,8 @@ function fakeElement() {
 }
 
 let saved = null;
+/** Windows rendered (class names): the recorder opens on "ready" for a GM. */
+const opened = [];
 const SHA_FAKE = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1234";
 const SHA_LATE = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb5678";
 const GIT_FILES = {
@@ -136,7 +138,7 @@ function install() {
   g.ui = { notifications };
   g.foundry = {
     applications: {
-      api: { ApplicationV2: class {}, HandlebarsApplicationMixin: Base => class extends Base {}, DialogV2: { confirm: async () => true } },
+      api: { ApplicationV2: class { render() { opened.push(this.constructor.name); return this; } }, HandlebarsApplicationMixin: Base => class extends Base {}, DialogV2: { confirm: async () => true } },
       instances: new Map()
     },
     utils: { saveDataToFile: (data, type, filename) => { saved = { data, type, filename }; } }
@@ -236,6 +238,10 @@ test("API: locked names on the module and in the ready hook; nothing stored befo
   assert.doesNotThrow(() => api.breadcrumb(FAKE, "early.crumb", { x: 1 }));
   assert.doesNotThrow(() => api.register(null));
   assert.equal(recorder.getState().hasData, false);
+  // openOnLoad (client, default on): the GM gets the recorder window as soon as the world is ready.
+  assert.equal(game.settings.get("dxcufgbs-debug-recorder", "openOnLoad"), true);
+  assert.equal(game.settings.settings.get("dxcufgbs-debug-recorder.openOnLoad").scope, "client");
+  assert.ok(opened.includes("RecorderApp"), "the recorder window opens on ready for a GM");
 });
 
 test("full pipeline: record, export, and no seeded value anywhere in the file", async () => {
@@ -415,6 +421,110 @@ test("export and issue summary contain no seeded value", async () => {
     const lower = text.toLowerCase();
     for (const seed of [...Object.values(SEED), ...Object.values(IDS), ORIGIN]) assert.ok(!lower.includes(String(seed).toLowerCase()), `leak: ${seed}`);
   }
+});
+
+/** Every entry of a zip archive, read through its central directory: [{name, data}]. */
+function readZip(zip) {
+  const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  const end = zip.length - 22;
+  let at = view.getUint32(end + 16, true);
+  const out = [];
+  for (let i = 0; i < view.getUint16(end + 10, true); i++) {
+    const compSize = view.getUint32(at + 20, true);
+    const nameLen = view.getUint16(at + 28, true);
+    const local = view.getUint32(at + 42, true);
+    const skip = local + 30 + view.getUint16(local + 26, true);
+    out.push({ name: new TextDecoder().decode(zip.subarray(at + 46, at + 46 + nameLen)), data: zlib.inflateRawSync(zip.subarray(skip, skip + compSize)).toString("utf8") });
+    at += 46 + nameLen;
+  }
+  return out;
+}
+
+test("several recordings: names, own reports, delete, and two or more always download as one zip", async () => {
+  const first = recorder.getState().recordings.at(-1);
+  assert.equal(first.recording, false);
+  // The GM names the bugs; names of the world's documents typed into a label must not reach the file or file name.
+  // SEED.newActor was learnt from a create hook during the first recording and is not in game.actors: only that
+  // recording's own Redactor knows it.
+  assert.ok(!game.actors.contents.some(a => a.name === SEED.newActor));
+  assert.equal(recorder.rename(first.id, `${SEED.actor} sheet breaks in ${SEED.scene} for ${SEED.userPlayer} after ${SEED.newActor}`), true);
+
+  assert.equal(await recorder.start([FAKE], { autoStopMinutes: 30 }), true);
+  const secondId = recorder.getState().activeId;
+  assert.notEqual(secondId, first.id);
+  assert.equal(recorder.getState().recordings.length, 2, "starting again keeps the earlier recording");
+  console.error(moduleError("only in the second recording"));
+  api.breadcrumb(FAKE, "second.crumb", { n: 1 });
+  // A running recording can't be deleted.
+  assert.equal(recorder.remove([secondId]), 0);
+  assert.equal(await recorder.stop(), true);
+  // An actor created after Stop (no create hook is watched any more), then named in the label and the report.
+  const lateActor = { id: "LateAct000000001", name: "Quillon Afterstop", items: [], effects: [] };
+  game.actors.set(lateActor.id, lateActor);
+  recorder.rename(secondId, `Second bug ${SEED.worldTitle} ${ORIGIN} ${lateActor.name}`);
+  recorder.setReport(secondId, "steps", `Open ${SEED.journal} and read "${SEED.chat}" with ${lateActor.name}`);
+
+  // Each recording keeps its own events.
+  assert.ok(recorder.storedEvents(secondId).some(e => String(e.message).includes("only in the second recording")));
+  assert.ok(!recorder.storedEvents(first.id).some(e => String(e.message).includes("only in the second recording")));
+  assert.ok(recorder.storedEvents(first.id).some(e => String(e.message).endsWith("same error again")));
+
+  // One recording: a plain JSON file named after its (scrubbed) label.
+  saved = null;
+  const single = await exporter.exportRecordings([secondId]);
+  assert.equal(single.ok, true);
+  assert.equal(saved.type, "application/json");
+  assert.match(saved.filename, /^dxcufgbs-debug-second-bug-[a-z0-9-]*\d{4}-\d\d-\d\dT\d\d-\d\d-\d\dZ\.json$/);
+  const singleFile = JSON.parse(saved.data);
+  assert.equal(singleFile.recording.number, 2);
+  assert.match(singleFile.recording.label, /^Second bug /);
+  assert.equal(singleFile.report.steps.includes("Open"), true);
+
+  // Two recordings: always one zip, a JSON file per recording, even without the .zip box ticked.
+  saved = null;
+  const both = await exporter.exportRecordings([secondId, first.id], { zip: false });
+  assert.equal(both.ok, true);
+  assert.equal(both.zipped, true);
+  assert.equal(saved.type, "application/zip");
+  assert.match(saved.filename, /^dxcufgbs-debug-2-recordings-\d{4}-\d\d-\d\dT\d\d-\d\d-\d\dZ\.zip$/);
+  const entries = readZip(saved.data);
+  assert.equal(entries.length, 2);
+  assert.equal(new Set(entries.map(e => e.name)).size, 2, "unique names in the zip");
+  for (const e of entries) assert.match(e.name, /^dxcufgbs-debug-[a-z0-9-]+\d{4}-\d\d-\d\dT\d\d-\d\d-\d\dZ(-\d+)?\.json$/);
+  const [secondFile, firstFile] = entries.map(e => JSON.parse(e.data));
+  assert.equal(secondFile.recording.number, 2);
+  assert.equal(firstFile.recording.number, 1);
+  assert.ok(secondFile.events.some(e => String(e.message).includes("only in the second recording")));
+  assert.ok(!firstFile.events.some(e => String(e.message).includes("only in the second recording")));
+  assert.ok(secondFile.report.steps.startsWith("Open "), "the zip keeps each recording's own report");
+  assert.equal(firstFile.report.steps, "", "each recording has its own report");
+  assert.ok(firstFile.summary.includes("- Recording: "));
+
+  const summary = await exporter.issueSummary([FAKE], { id: secondId });
+  assert.ok(summary.startsWith("**Recording:** Second bug"));
+  const firstSummary = await exporter.issueSummary([FAKE], { id: first.id });
+  assert.ok(firstSummary.startsWith("**Recording:** ‹name› sheet breaks"));
+  const allSeeds = [...Object.values(SEED), ...Object.values(IDS), ORIGIN, ":30000", "Elira", "Moonwhisper", "Drakhålan", "drakhalan", "Musse", "Zorbath", "Quillon", "Afterstop"];
+  const texts = [saved.filename, ...entries.map(e => e.name), ...entries.map(e => e.data), single.filename, JSON.stringify(singleFile), summary, firstSummary];
+  for (const text of texts) {
+    const lower = text.toLowerCase();
+    for (const seed of allSeeds) assert.ok(!lower.includes(String(seed).toLowerCase()), `seeded value leaked via a label or report: ${seed}`);
+  }
+
+  // Delete one; the other stays.
+  assert.equal(recorder.remove([first.id]), 1);
+  assert.deepEqual(recorder.getState().recordings.map(r => r.id), [secondId]);
+  await assert.rejects(exporter.buildFile(null, [], { id: first.id }));
+
+  // The list is capped.
+  while (recorder.canStart()) {
+    await recorder.start([FAKE], { autoStopMinutes: 30 });
+    await recorder.stop();
+  }
+  assert.equal(recorder.getState().recordings.length, 20);
+  assert.equal(await recorder.start([FAKE], { autoStopMinutes: 30 }), false);
+  assert.equal(recorder.clear(), true);
+  assert.equal(recorder.getState().hasData, false);
 });
 
 test("export without a recording, clear, caps", async () => {
