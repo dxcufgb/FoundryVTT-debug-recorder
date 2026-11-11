@@ -55,13 +55,16 @@ GitHub issue. System-agnostic. No build step and no npm dependencies.
   `lint` in `.github/foundry-module.json`: `node --test tests/*.test.mjs`.
 - `.github/workflows/ci.yml` / `release.yml` – thin callers of `dxcufgb/foundry-module-ci`; identical in every
   module, do not edit them here. `claude.yml` – the Claude review. `coderabbit.yml` – asks CodeRabbit for a review.
+  `wiki.yml` – publishes `wiki/` to the GitHub wiki.
+- `wiki/` – the GitHub wiki's pages (see Conventions).
 
 ## Conventions
 - `MODULE_ID` must equal `id` in `module.json`; CI checks it.
 - Every visible setting (`config: true`) needs a Name and Hint in `lang/en.json`; CI checks it.
 - Strings go through `t()` (`DXDR.` prefix). Hook handlers catch and `console.error` their errors.
 - Update the wiki (not `README.md`, which only has the install steps and links to the wiki) when behaviour, settings or
-  the API change.
+  the API change. The wiki's source is `wiki/` in this repository (`_Sidebar.md`, `_Footer.md` and one file per page):
+  `.github/workflows/wiki.yml` publishes it when it reaches main, so edit it here, never on GitHub. Not shipped.
 
 ## Review focus
 - **Privacy first**: anything stored goes through the session's `Redactor` when it is stored, never only at export.

@@ -8,7 +8,7 @@
 
 <a href="https://dxcufgb.github.io/FVTT-dev-showcase/"><img src="https://dxcufgb.github.io/FVTT-dev-showcase/assets/img/workshop-badge.png" alt="Dxcufgb's Workshop: every Foundry VTT project, video and changelog in one place" width="650"></a>
 
-A helper for bug reports about Dxcufgb's modules. The GM starts a recording, plays until the problem shows up, and stops. The recorder collects the versions, settings, errors and warnings of the modules you picked, and what those modules report about themselves, into one file to attach to the bug report on GitHub, together with your steps to reproduce.
+A helper for bug reports about Dxcufgb's modules. The GM starts a recording, plays until the problem shows up, and stops. The recorder collects the versions, settings, errors and warnings of the modules you picked, and what those modules report about themselves, into one file. That file is the whole bug report: attach it to the **Bug report with a debug recording** form on the module's GitHub page.
 
 Names, chat and journal text, the world's title and the server's address are removed before anything is stored, and a preview shows exactly what the file contains before you share it.
 
@@ -28,10 +28,11 @@ Enable it in your world, then open it from **Game Settings → Configure Setting
 
 The full guide is in the [wiki](https://github.com/dxcufgb/FoundryVTT-debug-recorder/wiki):
 
-- [Recording a Bug Report](https://github.com/dxcufgb/FoundryVTT-debug-recorder/wiki/Recording-a-Bug-Report): start, stop, export and attach the file
+- [Recording a Bug Report](https://github.com/dxcufgb/FoundryVTT-debug-recorder/wiki/Recording-a-Bug-Report): start, stop, download and attach the file
 - [What Is Recorded](https://github.com/dxcufgb/FoundryVTT-debug-recorder/wiki/What-Is-Recorded): every part of the file
 - [Privacy](https://github.com/dxcufgb/FoundryVTT-debug-recorder/wiki/Privacy): what is removed, and how
-- [Settings](https://github.com/dxcufgb/FoundryVTT-debug-recorder/wiki/Settings)
+- [Supported Modules](https://github.com/dxcufgb/FoundryVTT-debug-recorder/wiki/Supported-Modules): the modules you can record
+- [Settings](https://github.com/dxcufgb/FoundryVTT-debug-recorder/wiki/Settings): auto-stop, opening on load, the keybinding
 - [API](https://github.com/dxcufgb/FoundryVTT-debug-recorder/wiki/API): for module authors
 - [Troubleshooting](https://github.com/dxcufgb/FoundryVTT-debug-recorder/wiki/Troubleshooting)
 

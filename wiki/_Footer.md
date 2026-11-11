@@ -1,0 +1,1 @@
+[Dxcufgb's Workshop](https://dxcufgb.github.io/FVTT-dev-showcase/): every Foundry VTT project, video and changelog in one place · [Support on Ko-fi](https://ko-fi.com/dxcufgb) · [MIT License](https://github.com/dxcufgb/FoundryVTT-debug-recorder/blob/main/LICENSE)
