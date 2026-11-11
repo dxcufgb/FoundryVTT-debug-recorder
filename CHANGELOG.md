@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - Several recordings, one per bug. Starting again adds a new recording to a list instead of replacing the last one (up to 20; delete some to start more). Each recording has its own name, its own "What happened" fields and its own preview; click a recording's times to view it.
 - Name each recording in the list. The name is saved in the file (`recording.label`, with names of the world's documents removed like any other text) and used for the file name, e.g. `dxcufgbs-debug-sheet-crashes-<UTC time>.json`.

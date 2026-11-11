@@ -1,0 +1,52 @@
+# Publishes wiki/ to this repository's GitHub wiki. wiki/ is the source of the wiki: edit the pages there (through a
+# pull request like any other change), never on GitHub, or the next run overwrites the edit. Runs when a change to
+# wiki/ reaches main, and by hand (Actions -> "Publish wiki" -> Run workflow). The wiki ends up with exactly the
+# .md files in wiki/: pages removed there are removed from the wiki too.
+
+name: Publish wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "wiki/**"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: wiki
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish wiki
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # push to the wiki repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Push wiki/ to the wiki
+        env:
+          TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          git -c http.extraheader="$auth" clone --depth 1 "https://github.com/${REPO}.wiki.git" "$RUNNER_TEMP/wiki"
+          find "$RUNNER_TEMP/wiki" -maxdepth 1 -type f -name '*.md' -delete
+          cp wiki/*.md "$RUNNER_TEMP/wiki/"
+          cd "$RUNNER_TEMP/wiki"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The wiki is already up to date."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Publish wiki/ from ${SHA:0:7}"
+          git -c http.extraheader="$auth" push origin HEAD
